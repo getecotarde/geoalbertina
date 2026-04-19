@@ -155,17 +155,22 @@
     const SUPABASE_URL = 'https://hncvtarbayilviqbqogz.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3Z0YXJiYXlpbHZpcWJxb2d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjkxMDUsImV4cCI6MjA5MjIwNTEwNX0.5v0fHJSW2cwwWr7W2cEO32MvX2oImuQXaUR-lthUg14';
     
-    let supabase = null;
-    if(SUPABASE_URL.startsWith('http') && window.supabase) {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let sbClient = null;
+    function initSupabase() {
+        try {
+            const lib = window.supabase || (window.supabasejs) || null;
+            if (lib && lib.createClient) {
+                sbClient = lib.createClient(SUPABASE_URL, SUPABASE_KEY);
+            }
+        } catch(e) { sbClient = null; }
     }
 
     let db = JSON.parse(localStorage.getItem('geo_vFinal_2026')) || { turmas: {}, notas: {}, status: {} };
 
     async function salvar() {
         localStorage.setItem('geo_vFinal_2026', JSON.stringify(db));
-        if(supabase) {
-            const { error } = await supabase.from('diario_geografia').update({ dados: db }).eq('id', 1);
+        if(sbClient) {
+            const { error } = await sbClient.from('diario_geografia').update({ dados: db }).eq('id', 1);
             document.getElementById('cloud-status').innerText = error ? "❌ Erro Sinc" : "☁️ Sincronizado";
         } else {
             document.getElementById('cloud-status').innerText = "⚠️ Modo Local";
@@ -173,10 +178,26 @@
     }
 
     async function carregarDadosNuvem() {
-        if(supabase) {
-            const { data } = await supabase.from('diario_geografia').select('dados').eq('id', 1).single();
-            if(data) db = data.dados;
-            document.getElementById('cloud-status').innerText = "☁️ Nuvem Carregada";
+        initSupabase();
+        if(sbClient) {
+            try {
+                document.getElementById('cloud-status').innerText = "⏳ Conectando...";
+                const { data, error } = await sbClient.from('diario_geografia').select('dados').eq('id', 1).single();
+                if(error) {
+                    const msg = error.message || error.details || error.hint || error.code || 'Erro desconhecido';
+                    console.error('Supabase erro:', error);
+                    document.getElementById('cloud-status').innerText = "❌ " + msg;
+                } else {
+                    if(data && data.dados) db = data.dados;
+                    document.getElementById('cloud-status').innerText = "☁️ Nuvem Carregada";
+                }
+            } catch(e) {
+                const msg = e?.message || e?.details || e?.hint || JSON.stringify(e);
+                console.error('Supabase erro completo:', JSON.stringify(e));
+                document.getElementById('cloud-status').innerText = "❌ " + msg;
+            }
+        } else {
+            document.getElementById('cloud-status').innerText = "⚠️ Modo Local";
         }
         renderizarTurmas();
         switchTab('turmas');
