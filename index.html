@@ -388,6 +388,7 @@ thead th.t3-col { background: #fef3c7; }
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:12px">
+    <span id="sync-status" style="font-size:11px;color:rgba(255,255,255,.55);white-space:nowrap"></span>
     <div class="save-pill" id="save-pill">
       <span class="save-dot" id="save-dot"></span>
       <span id="save-label">Pronto</span>
@@ -395,6 +396,22 @@ thead th.t3-col { background: #fef3c7; }
     <button class="btn-sair" onclick="sair()">⏻ Sair</button>
   </div>
 </header>
+
+<!-- AVISO SQL (aparece só se tabela não existir) -->
+<div id="aviso-sql" style="display:none;background:#fef3c7;border-bottom:2px solid #fcd34d;padding:14px 28px;font-size:13px;color:#92400e">
+  <strong>⚙️ Configuração necessária (apenas uma vez):</strong>
+  Execute o SQL abaixo no <a href="https://supabase.com/dashboard/project/hncvtarbayilviqbqogz/sql/new" target="_blank" style="color:#1d4ed8;font-weight:600">SQL Editor do Supabase</a> para criar a tabela:
+  <br><br>
+  <code style="display:block;background:#fff8e1;border:1px solid #fcd34d;border-radius:8px;padding:12px;font-family:monospace;font-size:12px;white-space:pre;overflow-x:auto">CREATE TABLE IF NOT EXISTS diario (
+  id text PRIMARY KEY,
+  dados jsonb NOT NULL,
+  atualizado_em timestamptz DEFAULT now()
+);
+ALTER TABLE diario ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "acesso_total" ON diario FOR ALL USING (true) WITH CHECK (true);</code>
+  <br>
+  <button onclick="document.getElementById('aviso-sql').style.display='none';_pushSupabase()" style="background:#1d4ed8;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px">✓ Já executei, tentar novamente</button>
+</div>
 
 <nav class="app-nav no-print">
   <button class="nav-tab active" id="tab-turmas" onclick="goTab('turmas')">
@@ -529,40 +546,122 @@ thead th.t3-col { background: #fef3c7; }
 </div>
 
 <script>
+// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
+const SB_URL  = 'https://hncvtarbayilviqbqogz.supabase.co';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3Z0YXJiYXlpbHZpcWJxb2d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjkxMDUsImV4cCI6MjA5MjIwNTEwNX0.5v0fHJSW2cwwWr7W2cEO32MvX2oImuQXaUR-lthUg14';
+const SB_HEADERS = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+const DOC_ID = 'everton_2026';
+
 const STORAGE = 'geo_albertina_2026_v3';
-const N_ATIV = 6; // atividades por trimestre
+const N_ATIV = 6;
 const TRIMESTRES = [1, 2, 3];
 const TURMAS_FIXAS = ['8ºA','8ºB','8ºC','9ºA','9ºB','9ºC'];
 
-// Garante que as turmas fixas existam no db
-function inicializarTurmasFixas() {
-  TURMAS_FIXAS.forEach(t => {
-    if (!db.turmas[t]) { db.turmas[t] = []; db.status[t] = 'aberto'; }
-  });
+let db = JSON.parse(localStorage.getItem(STORAGE)) || { turmas: {}, notas: {}, status: {}, atividades: {}, mapas: {}, anotacoes: {} };
+if (!db.atividades) db.atividades = {};
+if (!db.mapas)      db.mapas = {};
+if (!db.anotacoes)  db.anotacoes = {};
+
+let trimestreFiltro = 1;
+let _saveTimer = null;
+
+// ─── PERSISTÊNCIA ──────────────────────────────────────────────────────────────
+async function salvar() {
+  setSave('saving');
+  // Salva localmente de imediato (fallback offline)
+  try { localStorage.setItem(STORAGE, JSON.stringify(db)); } catch(e) {}
+  // Debounce envio ao Supabase (evita flood em digitação)
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => _pushSupabase(), 800);
 }
 
-let trimestreFiltro = 1; // trimestre visível no momento
-
-// Estrutura de notas: { a1_nome, a1_valor, a1_nota, a2_nome, ... (por trimestre) }
-let db = JSON.parse(localStorage.getItem(STORAGE)) || { turmas: {}, notas: {}, status: {}, atividades: {} };
-
-// atividades: { [turma]: { t1: [{nome,valor},...], t2: [...], t3: [...] } }
-if (!db.atividades) db.atividades = {};
-
-function salvar() {
-  setSave('saving');
+async function _pushSupabase() {
   try {
-    localStorage.setItem(STORAGE, JSON.stringify(db));
-    setTimeout(() => setSave('ok'), 400);
-  } catch(e) { setSave('error'); }
+    const payload = { id: DOC_ID, dados: db, atualizado_em: new Date().toISOString() };
+    const res = await fetch(SB_URL + '/rest/v1/diario', {
+      method: 'POST',
+      headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok || res.status === 201 || res.status === 204) {
+      setSave('ok');
+    } else {
+      const txt = await res.text();
+      // Se tabela não existe, mostra instrução
+      if (txt.includes('does not exist') || txt.includes('relation') || res.status === 404) {
+        setSave('error');
+        mostrarAvisoSQL();
+      } else {
+        setSave('error');
+        console.warn('Supabase save error:', res.status, txt);
+      }
+    }
+  } catch(e) {
+    setSave('error');
+    console.warn('Supabase offline, dados salvos localmente.', e);
+  }
+}
+
+async function carregarDoSupabase() {
+  setSave('saving');
+  document.getElementById('sync-status').textContent = '⏳ Sincronizando...';
+  try {
+    const res = await fetch(SB_URL + '/rest/v1/diario?id=eq.' + DOC_ID + '&select=dados', {
+      headers: SB_HEADERS
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      if (txt.includes('does not exist') || txt.includes('relation') || res.status === 404) {
+        mostrarAvisoSQL();
+      }
+      document.getElementById('sync-status').textContent = '⚠️ Usando dados locais';
+      setSave('error');
+      return false;
+    }
+    const rows = await res.json();
+    if (rows && rows.length > 0 && rows[0].dados) {
+      const remoto = rows[0].dados;
+      // Mescla: remoto tem prioridade
+      db = remoto;
+      if (!db.atividades) db.atividades = {};
+      if (!db.mapas)      db.mapas = {};
+      if (!db.anotacoes)  db.anotacoes = {};
+      localStorage.setItem(STORAGE, JSON.stringify(db));
+      document.getElementById('sync-status').textContent = '☁️ Sincronizado';
+      setSave('ok');
+      return true;
+    } else {
+      // Nenhum dado remoto ainda — faz primeiro push
+      document.getElementById('sync-status').textContent = '☁️ Primeiro acesso';
+      await _pushSupabase();
+      return true;
+    }
+  } catch(e) {
+    document.getElementById('sync-status').textContent = '⚠️ Offline — dados locais';
+    setSave('error');
+    console.warn('Supabase load error:', e);
+    return false;
+  }
+}
+
+function mostrarAvisoSQL() {
+  const aviso = document.getElementById('aviso-sql');
+  if (aviso) aviso.style.display = 'block';
 }
 
 function setSave(s) {
   const dot = document.getElementById('save-dot');
   const lbl = document.getElementById('save-label');
+  if (!dot || !lbl) return;
   dot.className = 'save-dot' + (s === 'saving' ? ' saving' : s === 'error' ? ' error' : '');
   dot.style.background = s === 'ok' ? '#4ade80' : '';
-  lbl.textContent = s === 'saving' ? 'Salvando...' : s === 'error' ? 'Erro ao salvar' : 'Salvo ✓';
+  lbl.textContent = s === 'saving' ? 'Salvando...' : s === 'error' ? 'Erro ⚠️' : 'Salvo ✓';
+}
+
+function inicializarTurmasFixas() {
+  TURMAS_FIXAS.forEach(t => {
+    if (!db.turmas[t]) { db.turmas[t] = []; db.status[t] = 'aberto'; }
+  });
 }
 
 function esc(s) { return (s+'').replace(/'/g, "\\'"); }
@@ -1208,11 +1307,11 @@ function tentarLogin() {
     sessionStorage.setItem(SESSION_KEY, '1');
     const screen = document.getElementById('login-screen');
     screen.style.animation = 'fadeIn .25s ease reverse forwards';
-    setTimeout(() => screen.style.display = 'none', 250);
+    setTimeout(() => { screen.style.display = 'none'; iniciar(); }, 250);
     erro.textContent = '';
   } else {
     input.classList.remove('erro');
-    void input.offsetWidth; // reset animation
+    void input.offsetWidth;
     input.classList.add('erro');
     erro.textContent = '❌ Código incorreto. Tente novamente.';
     input.value = '';
@@ -1233,15 +1332,19 @@ function sair() {
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
-inicializarTurmasFixas();
-sincronizarNotas();
-atualizarSelects();
-renderizarTurmas();
-selecionarTrimestre(1);
+async function iniciar() {
+  await carregarDoSupabase();
+  inicializarTurmasFixas();
+  sincronizarNotas();
+  atualizarSelects();
+  renderizarTurmas();
+  selecionarTrimestre(1);
+}
 
 // Verifica sessão ativa
 if (sessionStorage.getItem(SESSION_KEY) === '1') {
   document.getElementById('login-screen').style.display = 'none';
+  iniciar();
 } else {
   setTimeout(() => document.getElementById('login-input').focus(), 100);
 }
