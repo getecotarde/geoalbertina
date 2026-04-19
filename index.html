@@ -1024,8 +1024,9 @@ function mostrarSalvoAnot() {
   lbl._t = setTimeout(() => lbl.classList.remove('show'), 2000);
 }
 
-function gerarRelatorio(a) {
+async function gerarRelatorio(a) {
   if (!db.anotacoes || !db.anotacoes[a]) return toast('Sem anotações para gerar relatório.');
+
   const triLabels = {1:'1º Trimestre', 2:'2º Trimestre', 3:'3º Trimestre'};
   const campoLabels = {
     participacao: 'Participação e Engajamento',
@@ -1035,29 +1036,127 @@ function gerarRelatorio(a) {
     destaques: 'Destaques e Potenciais',
     observacoes: 'Outras Observações'
   };
-  let texto = '=== RASCUNHO · RELATÓRIO DESCRITIVO ===\n';
-  texto += 'Aluno(a): ' + a + '\nTurma: 9ºA · Geografia · Prof. Everton Correa · 2026\n\n';
+
+  // Monta os dados brutos do professor
+  let dadosBrutos = '';
+  let temAlgumDado = false;
   TRIMESTRES.forEach(tr => {
     const d = db.anotacoes[a]['t'+tr] || {};
     const temConteudo = Object.values(d).some(v => v && v.trim());
     if (!temConteudo) return;
-    texto += '── ' + triLabels[tr] + ' ──\n';
+    temAlgumDado = true;
+    dadosBrutos += '\n[' + triLabels[tr] + ']\n';
     Object.entries(campoLabels).forEach(([k, l]) => {
-      if (d[k] && d[k].trim()) texto += '\n[' + l + ']\n' + d[k].trim() + '\n';
+      if (d[k] && d[k].trim()) dadosBrutos += l + ': ' + d[k].trim() + '\n';
     });
-    texto += '\n';
   });
-  // Abre em nova janela para copiar/imprimir
-  const win = window.open('', '_blank', 'width=700,height=600');
-  win.document.write('<html><head><title>Relatório · ' + a + '</title>' +
-    '<style>body{font-family:Georgia,serif;padding:40px;line-height:1.7;color:#1a1a1a;max-width:680px;margin:0 auto}' +
-    'h2{margin-bottom:4px}p{margin:0 0 4px;font-size:12px;color:#666}' +
-    'pre{white-space:pre-wrap;font-family:inherit;font-size:14px;margin-top:28px}' +
-    '.btn{margin-top:20px;padding:10px 20px;background:#1a3a5c;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px}' +
-    '</style></head><body>' +
-    '<h2>' + a + '</h2><p>9ºA · Geografia · Prof. Everton Correa · 2026</p>' +
-    '<button class="btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>' +
-    '<pre>' + texto.replace(/</g,'&lt;') + '</pre></body></html>');
+
+  if (!temAlgumDado) return toast('Nenhuma anotação preenchida para este aluno.');
+
+  // Abre modal de loading
+  abrirModalRelatorio(a, null);
+
+  try {
+    const prompt = `Você é um assistente pedagógico. Com base nas anotações brutas do professor abaixo, redija um relatório descritivo escolar formal, coeso e em terceira pessoa sobre o(a) aluno(a) ${a}, da turma 9ºA, disciplina de Geografia, ano letivo de 2026, Prof. Everton Correa.
+
+REGRAS:
+- Use APENAS as informações fornecidas pelo professor. Não invente, não suponha.
+- Escreva em parágrafos corridos, sem tópicos ou marcadores.
+- Organize por trimestre quando houver dados de mais de um.
+- Linguagem formal, respeitosa e profissional.
+- Não inclua título nem cabeçalho, apenas o corpo do relatório.
+- Se houver apenas um trimestre, não mencione "trimestre" desnecessariamente.
+
+ANOTAÇÕES DO PROFESSOR:
+${dadosBrutos}`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const textoGerado = data.content && data.content[0] ? data.content[0].text : null;
+
+    if (!textoGerado) throw new Error('Resposta vazia da IA');
+    abrirModalRelatorio(a, textoGerado);
+
+  } catch(e) {
+    console.warn('Erro IA:', e);
+    // Fallback: exibe dados brutos formatados
+    abrirModalRelatorio(a, '[Não foi possível conectar à IA. Relatório com dados brutos:]\n\n' + dadosBrutos);
+  }
+}
+
+function abrirModalRelatorio(aluno, texto) {
+  let modal = document.getElementById('modal-relatorio');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-relatorio';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease';
+    document.body.appendChild(modal);
+  }
+
+  const loadingHtml = `<div style="text-align:center;padding:40px 20px">
+    <div style="font-size:32px;margin-bottom:16px">✨</div>
+    <div style="font-size:15px;font-weight:600;color:#1a3a5c;margin-bottom:8px">Gerando relatório com IA...</div>
+    <div style="font-size:13px;color:#64748b">Aguarde alguns segundos</div>
+    <div style="margin-top:20px;height:4px;background:#e2e8f0;border-radius:4px;overflow:hidden">
+      <div style="height:100%;background:linear-gradient(90deg,#2563a8,#16a34a);border-radius:4px;animation:progresso 2s ease infinite;width:60%"></div>
+    </div>
+  </div>`;
+
+  const conteudo = texto
+    ? `<div style="white-space:pre-wrap;font-family:Georgia,serif;font-size:14px;line-height:1.85;color:#1a1a1a;max-height:55vh;overflow-y:auto;padding-right:6px">${texto.replace(/</g,'&lt;')}</div>`
+    : loadingHtml;
+
+  modal.innerHTML = `<div style="background:white;border-radius:16px;padding:32px;max-width:680px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.3);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0">
+      <div>
+        <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:#1a3a5c">📄 Relatório Descritivo</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px">${aluno} · 9ºA · Geografia · Prof. Everton Correa · 2026</div>
+      </div>
+      <button onclick="fecharModalRelatorio()" style="background:#f1f5f9;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:16px;flex-shrink:0">✕</button>
+    </div>
+    <div id="relatorio-corpo" style="flex:1;overflow:hidden">${conteudo}</div>
+    ${texto ? `<div style="display:flex;gap:8px;flex-shrink:0;border-top:1px solid #e2e8f0;padding-top:16px">
+      <button onclick="copiarRelatorio()" style="flex:1;padding:9px;background:#1a3a5c;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">📋 Copiar texto</button>
+      <button onclick="imprimirRelatorio2('${aluno.replace(/'/g,"\\'")}',document.getElementById('relatorio-corpo').innerText)" style="flex:1;padding:9px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500">🖨️ Imprimir / PDF</button>
+    </div>` : ''}
+  </div>
+  <style>@keyframes progresso{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}</style>`;
+}
+
+function fecharModalRelatorio() {
+  const m = document.getElementById('modal-relatorio');
+  if (m) m.remove();
+}
+
+function copiarRelatorio() {
+  const texto = document.getElementById('relatorio-corpo')?.innerText || '';
+  navigator.clipboard.writeText(texto).then(() => toast('Texto copiado! ✓'));
+}
+
+function imprimirRelatorio2(aluno, texto) {
+  const win = window.open('', '_blank', 'width=700,height=650');
+  win.document.write(`<html><head><title>Relatório · ${aluno}</title>
+    <style>body{font-family:Georgia,serif;padding:48px;line-height:1.85;color:#1a1a1a;max-width:660px;margin:0 auto}
+    h2{font-size:18px;margin:0 0 4px}
+    .sub{font-size:12px;color:#666;margin-bottom:28px}
+    .corpo{font-size:14px;white-space:pre-wrap}
+    .btn{margin-top:28px;padding:10px 22px;background:#1a3a5c;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px}
+    @media print{.btn{display:none}}</style>
+    </head><body>
+    <h2>${aluno}</h2>
+    <div class="sub">9ºA · Geografia · Prof. Everton Correa · 2026</div>
+    <div class="corpo">${texto.replace(/</g,'&lt;')}</div>
+    <button class="btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+    </body></html>`);
   win.document.close();
 }
 
