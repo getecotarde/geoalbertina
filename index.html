@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Geografia 2026 - Prof. Everton Correa</title>
     <!-- BIBLIOTECA SUPABASE -->
-    <script src="https://jsdelivr.net"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { 
             --oceano: #2980b9; 
@@ -156,8 +156,8 @@
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3Z0YXJiYXlpbHZpcWJxb2d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjkxMDUsImV4cCI6MjA5MjIwNTEwNX0.5v0fHJSW2cwwWr7W2cEO32MvX2oImuQXaUR-lthUg14';
     
     let supabase = null;
-    if(SUPABASE_URL.startsWith('http')) {
-        supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if(SUPABASE_URL.startsWith('http') && window.supabase) {
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     }
 
     let db = JSON.parse(localStorage.getItem('geo_vFinal_2026')) || { turmas: {}, notas: {}, status: {} };
