@@ -205,7 +205,86 @@ thead th.t3-col { background: #fef3c7; }
 .sep-t3 { border-left: 2px solid #fcd34d !important; }
 .sep-total { border-left: 2px solid var(--ocean-mid) !important; }
 
-#header-print { display: none; }
+/* ─── LOGIN ─────────────────────────────────────────────────────────────── */
+#login-screen {
+  position: fixed; inset: 0; z-index: 99999;
+  background: linear-gradient(135deg, var(--ocean) 0%, #0f2744 60%, #0a1a30 100%);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn .3s ease;
+}
+.login-card {
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 24px;
+  padding: 44px 40px;
+  width: 100%; max-width: 380px;
+  text-align: center;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 24px 60px rgba(0,0,0,.4);
+}
+.login-globe {
+  width: 72px; height: 72px;
+  background: linear-gradient(135deg, #3b82d4, #166534);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; margin: 0 auto 20px;
+  box-shadow: 0 0 0 6px rgba(255,255,255,.08), 0 8px 24px rgba(0,0,0,.3);
+}
+.login-title {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: 22px; color: white; margin-bottom: 4px; letter-spacing: -.3px;
+}
+.login-sub {
+  font-size: 12px; color: rgba(255,255,255,.5); margin-bottom: 32px;
+}
+.login-label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: rgba(255,255,255,.6); text-transform: uppercase;
+  letter-spacing: .6px; text-align: left; margin-bottom: 8px;
+}
+.login-input {
+  width: 100%; padding: 13px 16px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 12px; color: white;
+  font-family: 'DM Mono', monospace; font-size: 18px;
+  text-align: center; letter-spacing: 4px;
+  outline: none; transition: border .2s, box-shadow .2s;
+  margin-bottom: 16px;
+}
+.login-input::placeholder { color: rgba(255,255,255,.25); letter-spacing: 2px; font-size: 14px; }
+.login-input:focus { border-color: rgba(255,255,255,.4); box-shadow: 0 0 0 3px rgba(255,255,255,.08); }
+.login-input.erro { border-color: #f87171; box-shadow: 0 0 0 3px rgba(248,113,113,.15); animation: shake .3s ease; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+.login-btn {
+  width: 100%; padding: 13px;
+  background: linear-gradient(135deg, var(--ocean-light), var(--green-mid));
+  border: none; border-radius: 12px;
+  color: white; font-family: 'Syne', sans-serif;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: opacity .2s, transform .1s;
+  margin-top: 4px;
+}
+.login-btn:hover { opacity: .9; }
+.login-btn:active { transform: scale(.98); }
+.login-erro-msg {
+  font-size: 12px; color: #fca5a5; margin-top: 10px;
+  min-height: 18px; transition: opacity .2s;
+}
+.login-footer {
+  font-size: 11px; color: rgba(255,255,255,.3);
+  margin-top: 28px; line-height: 1.5;
+}
+/* Botão sair no header */
+.btn-sair {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; padding: 5px 12px; border-radius: 20px;
+  background: rgba(248,113,113,.15); border: 1px solid rgba(248,113,113,.3);
+  color: #fca5a5; cursor: pointer; transition: all .2s;
+  font-family: 'DM Sans', sans-serif; font-weight: 500;
+}
+.btn-sair:hover { background: rgba(248,113,113,.25); border-color: rgba(248,113,113,.5); }
+
 @media print {
   .app-header, .app-nav, .no-print, .toolbar .btn-group, .filter-bar { display: none !important; }
   body { background: white; padding: 0; }
@@ -230,6 +309,24 @@ thead th.t3-col { background: #fef3c7; }
 
 <div class="toast" id="toast"></div>
 
+<!-- TELA DE LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-globe">🌎</div>
+    <div class="login-title">Diário de Geografia</div>
+    <div class="login-sub">E.M. Albertina Alves do Nascimento · Prof. Everton Correa · 2026</div>
+    <label class="login-label">Código de acesso</label>
+    <input type="password" class="login-input" id="login-input"
+      placeholder="••••••••"
+      maxlength="20"
+      onkeydown="if(event.key==='Enter') tentarLogin()"
+      autocomplete="off">
+    <div class="login-erro-msg" id="login-erro"></div>
+    <button class="login-btn" onclick="tentarLogin()">🔓 Entrar</button>
+    <div class="login-footer">Acesso restrito ao professor responsável</div>
+  </div>
+</div>
+
 <header class="app-header">
   <div class="header-brand">
     <div class="header-globe">🌎</div>
@@ -238,9 +335,12 @@ thead th.t3-col { background: #fef3c7; }
       <div class="header-sub">Geografia · Prof. Everton Correa · 2026</div>
     </div>
   </div>
-  <div class="save-pill" id="save-pill">
-    <span class="save-dot" id="save-dot"></span>
-    <span id="save-label">Pronto</span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="save-pill" id="save-pill">
+      <span class="save-dot" id="save-dot"></span>
+      <span id="save-label">Pronto</span>
+    </div>
+    <button class="btn-sair" onclick="sair()">⏻ Sair</button>
   </div>
 </header>
 
@@ -778,12 +878,54 @@ function fecharModal() {
   document.getElementById('modal').style.display = 'none';
 }
 
-// INIT
+// ─── LOGIN / LOGOUT ──────────────────────────────────────────────────────────
+const SENHA = 'galodoio';
+const SESSION_KEY = 'geo_session_2026';
+
+function tentarLogin() {
+  const input = document.getElementById('login-input');
+  const erro = document.getElementById('login-erro');
+  if (input.value === SENHA) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    const screen = document.getElementById('login-screen');
+    screen.style.animation = 'fadeIn .25s ease reverse forwards';
+    setTimeout(() => screen.style.display = 'none', 250);
+    erro.textContent = '';
+  } else {
+    input.classList.remove('erro');
+    void input.offsetWidth; // reset animation
+    input.classList.add('erro');
+    erro.textContent = '❌ Código incorreto. Tente novamente.';
+    input.value = '';
+    input.focus();
+    setTimeout(() => input.classList.remove('erro'), 600);
+  }
+}
+
+function sair() {
+  if (!confirm('Deseja realmente sair? A sessão será encerrada.')) return;
+  sessionStorage.removeItem(SESSION_KEY);
+  const screen = document.getElementById('login-screen');
+  screen.style.display = 'flex';
+  screen.style.animation = 'fadeIn .25s ease forwards';
+  document.getElementById('login-input').value = '';
+  document.getElementById('login-erro').textContent = '';
+  document.getElementById('login-input').focus();
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
 inicializarTurmasFixas();
 sincronizarNotas();
 atualizarSelects();
 renderizarTurmas();
 selecionarTrimestre(1);
+
+// Verifica sessão ativa
+if (sessionStorage.getItem(SESSION_KEY) === '1') {
+  document.getElementById('login-screen').style.display = 'none';
+} else {
+  setTimeout(() => document.getElementById('login-input').focus(), 100);
+}
 </script>
 </body>
 </html>
