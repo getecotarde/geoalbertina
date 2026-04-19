@@ -683,7 +683,14 @@ function goTab(tab) {
   if (tab === 'turmas') renderizarTurmas();
   if (tab === 'notas') { atualizarSelects(); sincronizarNotas(); renderizarNotas(); }
   if (tab === 'mapeamento') { atualizarSelects(); renderizarMapeamento(); }
-  if (tab === 'anotacoes') { sincronizarNotas(); renderizarAnotacoes(); }
+  if (tab === 'anotacoes') {
+    // Garante que o db está atualizado antes de renderizar
+    carregarDoSupabase().then(() => {
+      inicializarTurmasFixas();
+      sincronizarNotas();
+      renderizarAnotacoes();
+    });
+  }
 }
 
 function adicionarTurma() {
@@ -881,8 +888,14 @@ function renderizarAnotacoes() {
   const alunos = db.turmas['9ºA'] || [];
   const lista = document.getElementById('anotListaAlunos');
   if (!alunos.length) {
-    lista.innerHTML = '<div class="empty" style="padding:20px;font-size:12px">Cadastre alunos na turma 9ºA.</div>';
-    document.getElementById('anotEditorWrap').innerHTML = '<div class="anot-vazio"><span style="font-size:36px;display:block;margin-bottom:10px;opacity:.3">📝</span>Cadastre alunos da 9ºA primeiro.</div>';
+    lista.innerHTML = '<div class="empty" style="padding:20px;font-size:12px;color:var(--ink-3)">' +
+      '<span style="font-size:28px;display:block;margin-bottom:8px">👥</span>' +
+      'Nenhum aluno cadastrado na turma <strong>9ºA</strong>.<br><br>' +
+      '<button class="btn btn-primary btn-sm" onclick="goTab(\'turmas\')">Ir para Gestão de Turmas</button>' +
+      '</div>';
+    document.getElementById('anotEditorWrap').innerHTML = '<div class="anot-vazio">' +
+      '<span style="font-size:36px;display:block;margin-bottom:10px;opacity:.3">📝</span>' +
+      'Cadastre os alunos da 9ºA na aba<br><strong>Gestão de Turmas</strong> para começar.</div>';
     return;
   }
   if (!db.anotacoes) db.anotacoes = {};
@@ -896,7 +909,11 @@ function renderizarAnotacoes() {
       (temNota ? '<span class="anot-badge">✓</span>' : '') +
       '</div>';
   }).join('');
-  if (anotAlunoAtivo) renderizarEditorAnotacao(anotAlunoAtivo);
+  if (anotAlunoAtivo && alunos.includes(anotAlunoAtivo)) {
+    renderizarEditorAnotacao(anotAlunoAtivo);
+  } else if (anotAlunoAtivo && !alunos.includes(anotAlunoAtivo)) {
+    anotAlunoAtivo = null;
+  }
 }
 
 function abrirAnotacaoAluno(a) {
