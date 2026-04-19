@@ -222,10 +222,16 @@ thead th.t3-col { background: #fef3c7; }
 .mapa-drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 .mapa-drop-icon { font-size: 40px; display: block; margin-bottom: 10px; opacity: .5; }
 .mapa-drop-text { font-size: 13px; color: var(--ink-3); }
-.mapa-img-wrap { position: relative; display: inline-block; max-width: 100%; }
-.mapa-img-wrap img { max-width: 100%; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: block; }
-.mapa-img-del { position: absolute; top: 10px; right: 10px; background: rgba(15,23,42,.6); color: white; border: none; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; backdrop-filter: blur(4px); }
-.mapa-img-del:hover { background: var(--red); }
+.mapa-img-wrap { display: block; width: 100%; }
+.mapa-img-wrap img { max-width: 100%; width: 100%; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: block; cursor: zoom-in; transition: opacity .15s; }
+.mapa-img-wrap img:hover { opacity: .88; }
+.mapa-img-del { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; width: 100%; background: var(--red-light); color: var(--red); border: 1px solid #fca5a5; border-radius: var(--radius); padding: 7px 12px; cursor: pointer; font-size: 12px; font-weight: 500; transition: background .15s; }
+.mapa-img-del:hover { background: #fecaca; }
+.mapa-lightbox { display: none; position: fixed; inset: 0; z-index: 99998; background: rgba(0,0,0,.92); align-items: center; justify-content: center; animation: fadeIn .2s ease; }
+.mapa-lightbox.open { display: flex; }
+.mapa-lightbox img { max-width: 94vw; max-height: 90vh; border-radius: var(--radius-lg); box-shadow: 0 8px 60px rgba(0,0,0,.6); object-fit: contain; }
+.mapa-lightbox-close { position: fixed; top: 18px; right: 22px; background: rgba(255,255,255,.15); border: none; color: white; font-size: 22px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; }
+.mapa-lightbox-close:hover { background: rgba(255,255,255,.3); }
 .mapa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
 .mapa-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
 .mapa-card-header { background: linear-gradient(90deg, var(--ocean) 0%, var(--ocean-mid) 100%); color: white; padding: 10px 16px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
@@ -360,6 +366,12 @@ thead th.t3-col { background: #fef3c7; }
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- LIGHTBOX MAPA -->
+<div class="mapa-lightbox" id="mapaLightbox" onclick="fecharLightbox()">
+  <button class="mapa-lightbox-close" onclick="fecharLightbox()">✕</button>
+  <img id="mapaLightboxImg" src="" alt="Mapa ampliado" onclick="event.stopPropagation()">
+</div>
 
 <!-- TELA DE LOGIN -->
 <div id="login-screen">
@@ -548,7 +560,7 @@ CREATE POLICY "acesso_total" ON diario FOR ALL USING (true) WITH CHECK (true);</
 <script>
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 const SB_URL  = 'https://hncvtarbayilviqbqogz.supabase.co';
-const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3Z0YXJiYXlpbHZpcWJxb2d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjkxMDUsImV4cCI6MjA5MjIwNTEwNX0.5v0fHJSW2cwwWr7W2cEO32MvX2oImuQXaUR-lthUg14';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3Z0YXJiYXlpbHZpcWJxb2d6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjYyOTEwNSwiZXhwIjoyMDkyMjA1MTA1fQ.7uxNDiOi8ppKu1_UeWdRwz7M56aV3CyXI9WKGIAAhf8';
 const SB_HEADERS = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
 const DOC_ID = 'everton_2026';
 
@@ -831,7 +843,7 @@ function renderizarMapeamento() {
   grid.innerHTML = turmas.map(t => {
     const img = db.mapas && db.mapas[t] ? db.mapas[t] : null;
     const imgHtml = img
-      ? '<div class="mapa-img-wrap"><img src="' + img + '" alt="Mapa ' + t + '"><button class="mapa-img-del" onclick="deletarMapa(\'' + esc(t) + '\')">🗑️ Remover</button></div>'
+      ? '<div class="mapa-img-wrap"><img src="' + img + '" alt="Mapa ' + t + '" onclick="abrirLightbox(\'' + esc(t) + '\')"><button class="mapa-img-del" onclick="deletarMapa(\'' + esc(t) + '\')">🗑️ Remover mapa</button></div>'
       : '<label class="mapa-drop-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="dropMapa(event,\'' + esc(t) + '\')">' +
         '<span class="mapa-drop-icon">🗺️</span>' +
         '<span class="mapa-drop-text">Clique ou arraste a imagem do mapa</span>' +
@@ -871,6 +883,19 @@ function dropMapa(event, t) {
     toast('Mapa da turma ' + t + ' salvo! ✓');
   };
   reader.readAsDataURL(file);
+}
+
+function abrirLightbox(t) {
+  const src = db.mapas && db.mapas[t] ? db.mapas[t] : null;
+  if (!src) return;
+  document.getElementById('mapaLightboxImg').src = src;
+  document.getElementById('mapaLightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function fecharLightbox() {
+  document.getElementById('mapaLightbox').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 function deletarMapa(t) {
