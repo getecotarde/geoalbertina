@@ -131,7 +131,13 @@ select { cursor: pointer; appearance: none;
 .turma-block-header {
   background: linear-gradient(90deg, var(--ocean) 0%, var(--ocean-mid) 100%);
   color: white; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  cursor: pointer; user-select: none;
 }
+.turma-block-header:hover { filter: brightness(1.08); }
+.turma-chevron { font-size: 12px; transition: transform .25s; display: inline-block; margin-left: 6px; opacity: .8; }
+.turma-block.collapsed .turma-chevron { transform: rotate(-90deg); }
+.turma-body { overflow: hidden; max-height: 2000px; transition: max-height .3s ease; }
+.turma-block.collapsed .turma-body { max-height: 0; }
 .turma-block-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .aluno-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; border-bottom: 1px solid var(--border); transition: background .1s; gap: 10px; }
 .aluno-row:last-child { border-bottom: none; }
@@ -204,6 +210,52 @@ thead th.t3-col { background: #fef3c7; }
 .sep-t2 { border-left: 2px solid #6ee7b7 !important; }
 .sep-t3 { border-left: 2px solid #fcd34d !important; }
 .sep-total { border-left: 2px solid var(--ocean-mid) !important; }
+
+/* ─── MAPEAMENTO ─────────────────────────────────────────────────────────── */
+.mapa-drop-zone {
+  border: 2px dashed var(--border-2); border-radius: var(--radius-lg);
+  padding: 40px 24px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s; background: var(--sky-pale);
+  position: relative;
+}
+.mapa-drop-zone:hover, .mapa-drop-zone.drag-over { border-color: var(--ocean-light); background: var(--sky); }
+.mapa-drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.mapa-drop-icon { font-size: 40px; display: block; margin-bottom: 10px; opacity: .5; }
+.mapa-drop-text { font-size: 13px; color: var(--ink-3); }
+.mapa-img-wrap { position: relative; display: inline-block; max-width: 100%; }
+.mapa-img-wrap img { max-width: 100%; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: block; }
+.mapa-img-del { position: absolute; top: 10px; right: 10px; background: rgba(15,23,42,.6); color: white; border: none; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; backdrop-filter: blur(4px); }
+.mapa-img-del:hover { background: var(--red); }
+.mapa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.mapa-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+.mapa-card-header { background: linear-gradient(90deg, var(--ocean) 0%, var(--ocean-mid) 100%); color: white; padding: 10px 16px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.mapa-card-body { padding: 16px; }
+
+/* ─── ANOTAÇÕES 9ºA ────────────────────────────────────────────────────── */
+.anot-grid { display: grid; grid-template-columns: 260px 1fr; gap: 20px; min-height: 500px; }
+@media (max-width: 768px) { .anot-grid { grid-template-columns: 1fr; } }
+.anot-lista { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+.anot-lista-header { background: linear-gradient(90deg, var(--ocean) 0%, var(--ocean-mid) 100%); color: white; padding: 12px 16px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; }
+.anot-aluno-item { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.anot-aluno-item:last-child { border-bottom: none; }
+.anot-aluno-item:hover { background: var(--sky-pale); }
+.anot-aluno-item.ativo { background: var(--sky); border-left: 3px solid var(--ocean-mid); }
+.anot-aluno-nome { font-size: 13px; font-weight: 500; }
+.anot-aluno-idx { font-size: 10px; color: var(--ink-3); font-family: 'DM Mono', monospace; }
+.anot-badge { font-size: 10px; background: var(--ocean-mid); color: white; border-radius: 20px; padding: 1px 7px; }
+.anot-editor { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; box-shadow: var(--shadow); }
+.anot-editor-nome { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+.anot-editor-sub { font-size: 12px; color: var(--ink-3); margin-bottom: 18px; }
+.anot-tri-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.anot-tri-tab { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border-2); background: var(--white); font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s; }
+.anot-tri-tab.ativo { color: white; }
+.anot-campo { margin-bottom: 18px; }
+.anot-campo label { display: block; font-size: 11px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+.anot-campo textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border-2); border-radius: var(--radius); font-family: 'DM Sans', sans-serif; font-size: 13px; resize: vertical; min-height: 80px; outline: none; transition: border .15s; }
+.anot-campo textarea:focus { border-color: var(--ocean-light); box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+.anot-salvo { font-size: 11px; color: var(--green-mid); opacity: 0; transition: opacity .3s; }
+.anot-salvo.show { opacity: 1; }
+.anot-vazio { text-align: center; padding: 60px 24px; color: var(--ink-3); }
 
 /* ─── LOGIN ─────────────────────────────────────────────────────────────── */
 #login-screen {
@@ -351,6 +403,12 @@ thead th.t3-col { background: #fef3c7; }
   <button class="nav-tab" id="tab-notas" onclick="goTab('notas')">
     <span class="tab-ico">📊</span> Diário de Notas
   </button>
+  <button class="nav-tab" id="tab-mapeamento" onclick="goTab('mapeamento')">
+    <span class="tab-ico">🗺️</span> Mapeamento
+  </button>
+  <button class="nav-tab" id="tab-anotacoes" onclick="goTab('anotacoes')">
+    <span class="tab-ico">📝</span> Anotações 9ºA
+  </button>
 </nav>
 
 <main class="app-main">
@@ -414,6 +472,43 @@ thead th.t3-col { background: #fef3c7; }
           <thead id="theadNotas"></thead>
           <tbody id="corpoNotas"></tbody>
         </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABA MAPEAMENTO -->
+  <section id="page-mapeamento" class="page">
+    <div class="toolbar no-print">
+      <div class="toolbar-title">🗺️ Mapeamento de Turmas</div>
+      <div class="btn-group">
+        <select id="selectTurmaMapa" style="width:130px" onchange="renderizarMapeamento()">
+          <option value="">— Todas —</option>
+        </select>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--ink-3);margin-bottom:18px">Anexe a foto/imagem do mapa de cada turma (planta da sala com disposição dos alunos).</p>
+    <div class="mapa-grid" id="mapaGrid"></div>
+  </section>
+
+  <!-- ABA ANOTAÇÕES 9ºA -->
+  <section id="page-anotacoes" class="page">
+    <div class="toolbar no-print">
+      <div class="toolbar-title">📝 Anotações Individuais · 9ºA</div>
+      <div style="font-size:12px;color:var(--ink-3)">Subsídios para Relatórios Descritivos</div>
+    </div>
+    <div id="anot-aviso" style="display:none" class="card" style="border-color:#fcd34d;background:#fffbeb">
+      <p style="font-size:13px;color:#92400e">⚠️ Cadastre os alunos da turma 9ºA na aba <strong>Gestão de Turmas</strong> para usar esta aba.</p>
+    </div>
+    <div class="anot-grid" id="anotGrid">
+      <div class="anot-lista">
+        <div class="anot-lista-header">👥 Alunos da 9ºA</div>
+        <div id="anotListaAlunos"></div>
+      </div>
+      <div id="anotEditorWrap">
+        <div class="anot-vazio">
+          <span style="font-size:36px;display:block;margin-bottom:10px;opacity:.3">📝</span>
+          Selecione um aluno ao lado para registrar anotações.
+        </div>
       </div>
     </div>
   </section>
@@ -488,6 +583,8 @@ function goTab(tab) {
   document.getElementById('page-' + tab).classList.add('active');
   if (tab === 'turmas') renderizarTurmas();
   if (tab === 'notas') { atualizarSelects(); sincronizarNotas(); renderizarNotas(); }
+  if (tab === 'mapeamento') { atualizarSelects(); renderizarMapeamento(); }
+  if (tab === 'anotacoes') { sincronizarNotas(); renderizarAnotacoes(); }
 }
 
 function adicionarTurma() {
@@ -562,9 +659,16 @@ function renderizarTurmas() {
     c.innerHTML = '<div class="empty"><span class="empty-icon">🏫</span>Nenhuma turma criada ainda.<br>Crie uma turma acima para começar.</div>';
     return;
   }
+  // Preserva estado de colapso existente
+  const colapsadas = {};
+  document.querySelectorAll('.turma-block').forEach(el => {
+    if (el.dataset.turma) colapsadas[el.dataset.turma] = el.classList.contains('collapsed');
+  });
+
   c.innerHTML = turmas.map(t => {
     const alunos = db.turmas[t];
     const isFechado = db.status[t] === 'fechado';
+    const isCol = colapsadas[t] !== undefined ? colapsadas[t] : false;
     const rows = alunos.length
       ? alunos.map((a, i) =>
           '<div class="aluno-row">' +
@@ -577,16 +681,22 @@ function renderizarTurmas() {
         ).join('')
       : '<div class="empty" style="padding:20px;font-size:13px;color:var(--ink-3)">Nenhum aluno cadastrado.</div>';
 
-    return '<div class="turma-block">' +
-      '<div class="turma-block-header">' +
+    return '<div class="turma-block' + (isCol ? ' collapsed' : '') + '" data-turma="' + esc(t) + '">' +
+      '<div class="turma-block-header" onclick="toggleTurmaBlock(\'' + esc(t) + '\')">' +
       '<div class="turma-block-title">📍 ' + t +
       (isFechado ? ' <span style="font-size:11px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:20px;font-weight:400">🔒 Travada</span>' : '') +
-      '</div>' +
-      '<div style="display:flex;align-items:center;gap:10px">' +
+      ' <span class="turma-chevron">▼</span></div>' +
+      '<div style="display:flex;align-items:center;gap:10px" onclick="event.stopPropagation()">' +
       '<span style="font-size:12px;opacity:.75">' + alunos.length + ' aluno(s)</span>' +
       '<button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:white;border-color:rgba(255,255,255,.2);font-size:11px" onclick="excluirTurma(\'' + esc(t) + '\')">Excluir</button>' +
-      '</div></div>' + rows + '</div>';
+      '</div></div>' +
+      '<div class="turma-body">' + rows + '</div></div>';
   }).join('');
+}
+
+function toggleTurmaBlock(t) {
+  const el = document.querySelector('.turma-block[data-turma="' + t + '"]');
+  if (el) el.classList.toggle('collapsed');
 }
 
 function atualizarSelects() {
@@ -599,6 +709,215 @@ function atualizarSelects() {
       turmas.map(t => '<option value="' + t + '">' + t + '</option>').join('');
     if (prev && turmas.includes(prev)) s.value = prev;
   });
+  // select mapa
+  const sm = document.getElementById('selectTurmaMapa');
+  if (sm) {
+    sm.innerHTML = '<option value="">— Todas —</option>' +
+      turmas.map(t => '<option value="' + t + '">' + t + '</option>').join('');
+  }
+}
+
+// ─── MAPEAMENTO ────────────────────────────────────────────────────────────────
+function renderizarMapeamento() {
+  const filtro = document.getElementById('selectTurmaMapa').value;
+  const grid = document.getElementById('mapaGrid');
+  const turmas = filtro ? [filtro] : TURMAS_FIXAS;
+  grid.innerHTML = turmas.map(t => {
+    const img = db.mapas && db.mapas[t] ? db.mapas[t] : null;
+    const imgHtml = img
+      ? '<div class="mapa-img-wrap"><img src="' + img + '" alt="Mapa ' + t + '"><button class="mapa-img-del" onclick="deletarMapa(\'' + esc(t) + '\')">🗑️ Remover</button></div>'
+      : '<label class="mapa-drop-zone" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="dropMapa(event,\'' + esc(t) + '\')">' +
+        '<span class="mapa-drop-icon">🗺️</span>' +
+        '<span class="mapa-drop-text">Clique ou arraste a imagem do mapa</span>' +
+        '<input type="file" accept="image/*" onchange="carregarMapa(event,\'' + esc(t) + '\')">' +
+        '</label>';
+    return '<div class="mapa-card">' +
+      '<div class="mapa-card-header"><span>📍 ' + t + '</span>' +
+      (img ? '<span style="font-size:10px;opacity:.75">✓ Mapa carregado</span>' : '<span style="font-size:10px;opacity:.6">Sem mapa</span>') +
+      '</div>' +
+      '<div class="mapa-card-body">' + imgHtml + '</div></div>';
+  }).join('');
+}
+
+function carregarMapa(event, t) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (!db.mapas) db.mapas = {};
+    db.mapas[t] = e.target.result;
+    salvar(); renderizarMapeamento();
+    toast('Mapa da turma ' + t + ' salvo! ✓');
+  };
+  reader.readAsDataURL(file);
+}
+
+function dropMapa(event, t) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if (!file || !file.type.startsWith('image/')) return toast('Arquivo deve ser uma imagem.');
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (!db.mapas) db.mapas = {};
+    db.mapas[t] = e.target.result;
+    salvar(); renderizarMapeamento();
+    toast('Mapa da turma ' + t + ' salvo! ✓');
+  };
+  reader.readAsDataURL(file);
+}
+
+function deletarMapa(t) {
+  if (!confirm('Remover o mapa da turma ' + t + '?')) return;
+  if (db.mapas) delete db.mapas[t];
+  salvar(); renderizarMapeamento();
+  toast('Mapa removido.');
+}
+
+// ─── ANOTAÇÕES 9ºA ────────────────────────────────────────────────────────────
+let anotAlunoAtivo = null;
+let anotTriAtivo = 1;
+
+function renderizarAnotacoes() {
+  const alunos = db.turmas['9ºA'] || [];
+  const lista = document.getElementById('anotListaAlunos');
+  if (!alunos.length) {
+    lista.innerHTML = '<div class="empty" style="padding:20px;font-size:12px">Cadastre alunos na turma 9ºA.</div>';
+    document.getElementById('anotEditorWrap').innerHTML = '<div class="anot-vazio"><span style="font-size:36px;display:block;margin-bottom:10px;opacity:.3">📝</span>Cadastre alunos da 9ºA primeiro.</div>';
+    return;
+  }
+  if (!db.anotacoes) db.anotacoes = {};
+  lista.innerHTML = alunos.map((a, i) => {
+    const temNota = db.anotacoes[a] && TRIMESTRES.some(tr => {
+      const d = db.anotacoes[a]['t'+tr];
+      return d && Object.values(d).some(v => v && v.trim());
+    });
+    return '<div class="anot-aluno-item' + (a === anotAlunoAtivo ? ' ativo' : '') + '" onclick="abrirAnotacaoAluno(\'' + esc(a) + '\')">' +
+      '<div><span class="anot-aluno-idx">' + String(i+1).padStart(2,'0') + '</span> <span class="anot-aluno-nome">' + a + '</span></div>' +
+      (temNota ? '<span class="anot-badge">✓</span>' : '') +
+      '</div>';
+  }).join('');
+  if (anotAlunoAtivo) renderizarEditorAnotacao(anotAlunoAtivo);
+}
+
+function abrirAnotacaoAluno(a) {
+  anotAlunoAtivo = a;
+  renderizarAnotacoes();
+}
+
+function renderizarEditorAnotacao(a) {
+  if (!db.anotacoes) db.anotacoes = {};
+  if (!db.anotacoes[a]) db.anotacoes[a] = {};
+  TRIMESTRES.forEach(tr => { if (!db.anotacoes[a]['t'+tr]) db.anotacoes[a]['t'+tr] = {}; });
+
+  const wrap = document.getElementById('anotEditorWrap');
+  const triColors = {1:'#1e40af', 2:'#15803d', 3:'#b45309'};
+  const triLabels = {1:'1º Trimestre', 2:'2º Trimestre', 3:'3º Trimestre'};
+
+  const campos = [
+    { key: 'participacao', label: '💬 Participação e Engajamento' },
+    { key: 'comportamento', label: '🤝 Comportamento e Convivência' },
+    { key: 'aprendizagem', label: '📚 Aprendizagem e Desenvolvimento' },
+    { key: 'dificuldades', label: '⚠️ Dificuldades Observadas' },
+    { key: 'destaques', label: '⭐ Destaques e Potenciais' },
+    { key: 'observacoes', label: '📋 Outras Observações' },
+  ];
+
+  const triTabs = TRIMESTRES.map(tr =>
+    '<button class="anot-tri-tab' + (tr === anotTriAtivo ? ' ativo' : '') + '" ' +
+    'style="' + (tr === anotTriAtivo ? 'background:' + triColors[tr] + ';border-color:' + triColors[tr] : '') + '" ' +
+    'onclick="mudarTriAnotacao(' + tr + ')">' + triLabels[tr] + '</button>'
+  ).join('');
+
+  const camposHtml = campos.map(c => {
+    const val = (db.anotacoes[a]['t'+anotTriAtivo][c.key] || '');
+    return '<div class="anot-campo">' +
+      '<label>' + c.label + '</label>' +
+      '<textarea rows="3" placeholder="Registre aqui..." ' +
+      'onchange="salvarAnotacao(\'' + esc(a) + '\',\'' + c.key + '\',this.value)" ' +
+      'oninput="mostrarSalvoAnot()">' + val.replace(/</g,'&lt;') + '</textarea></div>';
+  }).join('');
+
+  wrap.innerHTML = '<div class="anot-editor">' +
+    '<div class="anot-editor-nome">' + a + '</div>' +
+    '<div class="anot-editor-sub">9ºA · Relatório Descritivo · Turma de Referência</div>' +
+    '<div class="anot-tri-tabs">' + triTabs + '</div>' +
+    camposHtml +
+    '<div style="display:flex;align-items:center;gap:12px;margin-top:8px">' +
+    '<button class="btn btn-primary btn-sm" onclick="gerarRelatorio(\'' + esc(a) + '\')">📄 Gerar Rascunho do Relatório</button>' +
+    '<span class="anot-salvo" id="anot-salvo-lbl">✓ Salvo</span>' +
+    '</div></div>';
+}
+
+function mudarTriAnotacao(tr) {
+  anotTriAtivo = tr;
+  if (anotAlunoAtivo) renderizarEditorAnotacao(anotAlunoAtivo);
+}
+
+function salvarAnotacao(a, campo, val) {
+  if (!db.anotacoes) db.anotacoes = {};
+  if (!db.anotacoes[a]) db.anotacoes[a] = {};
+  if (!db.anotacoes[a]['t'+anotTriAtivo]) db.anotacoes[a]['t'+anotTriAtivo] = {};
+  db.anotacoes[a]['t'+anotTriAtivo][campo] = val;
+  salvar();
+  renderizarListaAnotacoes();
+}
+
+function renderizarListaAnotacoes() {
+  // Atualiza apenas os badges da lista sem re-renderizar o editor
+  const alunos = db.turmas['9ºA'] || [];
+  const lista = document.getElementById('anotListaAlunos');
+  if (!lista) return;
+  alunos.forEach((a, i) => {
+    const item = lista.children[i];
+    if (!item) return;
+    item.className = 'anot-aluno-item' + (a === anotAlunoAtivo ? ' ativo' : '');
+  });
+}
+
+function mostrarSalvoAnot() {
+  const lbl = document.getElementById('anot-salvo-lbl');
+  if (!lbl) return;
+  lbl.classList.add('show');
+  clearTimeout(lbl._t);
+  lbl._t = setTimeout(() => lbl.classList.remove('show'), 2000);
+}
+
+function gerarRelatorio(a) {
+  if (!db.anotacoes || !db.anotacoes[a]) return toast('Sem anotações para gerar relatório.');
+  const triLabels = {1:'1º Trimestre', 2:'2º Trimestre', 3:'3º Trimestre'};
+  const campoLabels = {
+    participacao: 'Participação e Engajamento',
+    comportamento: 'Comportamento e Convivência',
+    aprendizagem: 'Aprendizagem e Desenvolvimento',
+    dificuldades: 'Dificuldades Observadas',
+    destaques: 'Destaques e Potenciais',
+    observacoes: 'Outras Observações'
+  };
+  let texto = '=== RASCUNHO · RELATÓRIO DESCRITIVO ===\n';
+  texto += 'Aluno(a): ' + a + '\nTurma: 9ºA · Geografia · Prof. Everton Correa · 2026\n\n';
+  TRIMESTRES.forEach(tr => {
+    const d = db.anotacoes[a]['t'+tr] || {};
+    const temConteudo = Object.values(d).some(v => v && v.trim());
+    if (!temConteudo) return;
+    texto += '── ' + triLabels[tr] + ' ──\n';
+    Object.entries(campoLabels).forEach(([k, l]) => {
+      if (d[k] && d[k].trim()) texto += '\n[' + l + ']\n' + d[k].trim() + '\n';
+    });
+    texto += '\n';
+  });
+  // Abre em nova janela para copiar/imprimir
+  const win = window.open('', '_blank', 'width=700,height=600');
+  win.document.write('<html><head><title>Relatório · ' + a + '</title>' +
+    '<style>body{font-family:Georgia,serif;padding:40px;line-height:1.7;color:#1a1a1a;max-width:680px;margin:0 auto}' +
+    'h2{margin-bottom:4px}p{margin:0 0 4px;font-size:12px;color:#666}' +
+    'pre{white-space:pre-wrap;font-family:inherit;font-size:14px;margin-top:28px}' +
+    '.btn{margin-top:20px;padding:10px 20px;background:#1a3a5c;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px}' +
+    '</style></head><body>' +
+    '<h2>' + a + '</h2><p>9ºA · Geografia · Prof. Everton Correa · 2026</p>' +
+    '<button class="btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>' +
+    '<pre>' + texto.replace(/</g,'&lt;') + '</pre></body></html>');
+  win.document.close();
 }
 
 function selecionarTrimestre(tr) {
@@ -879,7 +1198,7 @@ function fecharModal() {
 }
 
 // ─── LOGIN / LOGOUT ──────────────────────────────────────────────────────────
-const SENHA = 'galodoido';
+const SENHA = 'galodoio';
 const SESSION_KEY = 'geo_session_2026';
 
 function tentarLogin() {
