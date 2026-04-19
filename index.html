@@ -1203,8 +1203,8 @@ function abrirModalExportExcel() {
   modal.innerHTML = `<div style="background:white;border-radius:16px;padding:28px;max-width:560px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.3);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:#1a3a5c">📊 Exportar Anotações — Excel</div>
-        <div style="font-size:12px;color:#64748b;margin-top:2px">Selecione alunos e trimestres</div>
+        <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:#1a3a5c">📤 Exportar Anotações</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px">Selecione alunos, trimestres e formato</div>
       </div>
       <button onclick="fecharModalExportExcel()" style="background:#f1f5f9;border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:16px">✕</button>
     </div>
@@ -1224,7 +1224,8 @@ function abrirModalExportExcel() {
     </div>
 
     <div style="display:flex;gap:8px;flex-shrink:0;border-top:1px solid #e2e8f0;padding-top:14px">
-      <button onclick="executarExportExcel()" style="flex:1;padding:10px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">⬇️ Baixar Excel</button>
+      <button onclick="executarExportExcel()" style="flex:1;padding:10px;background:#16a34a;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📊 Baixar Excel</button>
+      <button onclick="executarExportPDF()" style="flex:1;padding:10px;background:#1a3a5c;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">📄 Baixar PDF</button>
       <button onclick="fecharModalExportExcel()" style="padding:10px 18px;background:#f1f5f9;color:#334155;border:none;border-radius:8px;cursor:pointer;font-size:13px">Cancelar</button>
     </div>
   </div>`;
@@ -1257,18 +1258,19 @@ function executarExportExcel() {
   };
   const campos = Object.keys(campoLabels);
 
-  // Monta cabeçalho dinâmico
+  // Monta cabeçalho: 1 coluna por trimestre
   const cabecalho = ['#', 'Aluno(a)'];
-  trisSel.forEach(tr => {
-    campos.forEach(c => cabecalho.push(triLabels[tr] + ' · ' + campoLabels[c]));
-  });
+  trisSel.forEach(tr => cabecalho.push(triLabels[tr]));
 
-  // Monta linhas
+  // Monta linhas: concatena todos os campos preenchidos separados por vírgula
   const linhas = alunosSel.map((a, i) => {
     const row = [i + 1, a];
     trisSel.forEach(tr => {
       const d = (db.anotacoes && db.anotacoes[a] && db.anotacoes[a]['t'+tr]) || {};
-      campos.forEach(c => row.push(d[c] ? d[c].trim() : ''));
+      const partes = campos
+        .filter(c => d[c] && d[c].trim())
+        .map(c => d[c].trim());
+      row.push(partes.join(', '));
     });
     return row;
   });
@@ -1321,6 +1323,65 @@ function _gerarXLSX(cabecalho, linhas) {
   XLSX.writeFile(wb, 'anotacoes_9A_' + new Date().toISOString().slice(0,10) + '.xlsx');
   fecharModalExportExcel();
   toast('Excel exportado com sucesso! ✓');
+}
+
+function executarExportPDF() {
+  const alunosSel = [...document.querySelectorAll('.chk-aluno-excel:checked')].map(c => c.value);
+  const trisSel   = [...document.querySelectorAll('.chk-tri-excel:checked')].map(c => parseInt(c.value));
+
+  if (!alunosSel.length) return toast('Selecione ao menos um aluno.');
+  if (!trisSel.length)   return toast('Selecione ao menos um trimestre.');
+
+  const triLabels   = {1:'1\u00ba Trimestre', 2:'2\u00ba Trimestre', 3:'3\u00ba Trimestre'};
+  const triColors   = {1:'#1e3a8a', 2:'#14532d', 3:'#78350f'};
+  const triBg       = {1:'#eff6ff', 2:'#f0fdf4', 3:'#fffbeb'};
+  const campoLabels = {
+    participacao: 'Participa\u00e7\u00e3o e Engajamento',
+    comportamento: 'Comportamento e Conviv\u00eancia',
+    aprendizagem: 'Aprendizagem e Desenvolvimento',
+    dificuldades: 'Dificuldades Observadas',
+    destaques: 'Destaques e Potenciais',
+    observacoes: 'Outras Observa\u00e7\u00f5es'
+  };
+  const campos = Object.keys(campoLabels);
+
+  const cabThs = '<th style="width:28px;background:#1a3a5c;color:white;padding:8px 6px;font-size:11px">#</th>' +
+    '<th style="background:#1a3a5c;color:white;padding:8px 10px;font-size:11px;text-align:left;min-width:130px">Aluno(a)</th>' +
+    trisSel.map(tr =>
+      '<th style="background:' + triColors[tr] + ';color:white;padding:8px 10px;font-size:11px;text-align:left">' + triLabels[tr] + '</th>'
+    ).join('');
+
+  const linhasHtml = alunosSel.map(function(a, i) {
+    const tds = trisSel.map(function(tr) {
+      const d = (db.anotacoes && db.anotacoes[a] && db.anotacoes[a]['t'+tr]) || {};
+      const partes = campos.filter(function(c) { return d[c] && d[c].trim(); });
+      if (!partes.length) return '<td style="padding:8px 10px;font-size:11px;color:#94a3b8;border:1px solid #e2e8f0">—</td>';
+      const itens = partes.map(function(c) {
+        return '<div style="margin-bottom:5px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;color:' + triColors[tr] + ';display:block;margin-bottom:1px">' + campoLabels[c] + '</span>' + d[c].trim().replace(/</g,'&lt;') + '</div>';
+      }).join('');
+      return '<td style="padding:8px 10px;font-size:11px;vertical-align:top;border:1px solid #e2e8f0;background:' + triBg[tr] + '">' + itens + '</td>';
+    }).join('');
+    const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+    return '<tr style="background:' + bg + '"><td style="text-align:center;font-size:10px;color:#94a3b8;font-family:monospace;border:1px solid #e2e8f0;padding:8px 4px">' + String(i+1).padStart(2,'0') + '</td><td style="font-weight:600;font-size:12px;padding:8px 10px;border:1px solid #e2e8f0;white-space:nowrap">' + a + '</td>' + tds + '</tr>';
+  }).join('');
+
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+  const html = '<!DOCTYPE html><html lang="pt-br"><head><meta charset="UTF-8"><title>Anota\u00e7\u00f5es 9\u00baA</title>' +
+    '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:28px;color:#1a1a1a;font-size:12px}' +
+    'h1{font-size:16px;color:#1a3a5c;margin-bottom:2px}.sub{font-size:11px;color:#64748b;margin-bottom:20px}' +
+    'table{width:100%;border-collapse:collapse}th{text-align:left}' +
+    '.btn{margin-top:20px;padding:9px 20px;background:#1a3a5c;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px}' +
+    '@media print{.btn{display:none}body{padding:0}}</style></head><body>' +
+    '<h1>Anota\u00e7\u00f5es Individuais \u00b7 9\u00baA</h1>' +
+    '<div class="sub">Geografia \u00b7 Prof. Everton Correa \u00b7 2026 \u00b7 Gerado em ' + dataHoje + '</div>' +
+    '<table><thead><tr>' + cabThs + '</tr></thead><tbody>' + linhasHtml + '</tbody></table>' +
+    '<button class="btn" onclick="window.print()">\uD83D\uDDB8\uFE0F Imprimir / Salvar PDF</button>' +
+    '</body></html>';
+
+  const win = window.open('', '_blank', 'width=900,height=700');
+  win.document.write(html);
+  win.document.close();
+  fecharModalExportExcel();
 }
 
 function selecionarTrimestre(tr) {
