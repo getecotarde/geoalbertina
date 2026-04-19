@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Geografia 2026 - Prof. Everton Correa</title>
+    <!-- BIBLIOTECA SUPABASE -->
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        :root { 
+            --oceano: #2980b9; 
+            --ceu: #e3f2fd; 
+            --terra: #27ae60; 
+            --mapa-bg: #f0f4f8;
+            --accent: #00a8ff;
+            --danger: #c0392b;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background-color: var(--mapa-bg);
+            background-image: radial-gradient(#d1d8e0 1px, transparent 1px);
+            background-size: 40px 40px;
+            margin: 0; padding: 20px; 
+        }
+
+        .container { 
+            max-width: 1200px; margin: auto; 
+            background: rgba(255, 255, 255, 0.98); 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); 
+            border: 2px solid var(--oceano);
+            overflow: hidden; 
+        }
+        
+        .header-geo { 
+            background: var(--oceano); color: white; padding: 20px 30px; 
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 4px solid var(--accent);
+        }
+
+        .main-nav { background: #f8f9fa; display: flex; border-bottom: 1px solid #ddd; }
+        .nav-btn { 
+            background: none; border: none; color: #7f8c8d; padding: 15px 25px; 
+            cursor: pointer; font-weight: bold; border-bottom: 3px solid transparent; 
+        }
+        .nav-btn.active { color: var(--oceano); border-bottom-color: var(--oceano); background: var(--ceu); }
+
+        .content-section { padding: 30px; display: none; }
+        .content-section.active { display: block; }
+
+        .card { background: white; border: 1px solid var(--ceu); border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        
+        input, select, textarea { padding: 12px; border: 2px solid var(--ceu); border-radius: 8px; width: 100%; box-sizing: border-box; }
+        
+        button { cursor: pointer; border: none; border-radius: 6px; font-weight: bold; padding: 12px 20px; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-main { background: var(--oceano); color: white; }
+        .btn-success { background: var(--terra); color: white; }
+        .btn-lock { background: #f39c12; color: white; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { background: var(--ceu); color: var(--oceano); padding: 12px; border: 1px solid #d1d8e0; font-size: 12px; text-transform: uppercase; }
+        td { padding: 10px; border: 1px solid #eee; }
+        
+        .abaixo-media { color: var(--danger); font-weight: bold; }
+        .na-media { color: var(--oceano); font-weight: bold; }
+
+        .filter-bar { background: var(--ceu); padding: 15px; border-radius: 10px; display: flex; gap: 15px; align-items: center; margin-bottom: 20px; }
+
+        @media print {
+            .no-print, .main-nav, button, .card, .filter-bar, th:last-child, td:last-child { display: none !important; }
+            body { background: white; padding: 0; }
+            .container { border: none; box-shadow: none; }
+            #header-print { display: block !important; text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; }
+            table { border: 1px solid #000; width: 100%; font-size: 12px; }
+            th, td { border: 1px solid #000; color: black !important; }
+            input, textarea { border: none !important; background: none !important; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="header-print" style="display:none;">
+    <h1>E.M. Albertina Alves do Nascimento</h1>
+    <p>Geografia 2026 | Prof. Everton Correa</p>
+    <p id="print-turma-txt"></p>
+</div>
+
+<div class="container">
+    <header class="header-geo">
+        <div>
+            <h1>🌎 Albertina Alves do Nascimento</h1>
+            <p><strong>Geografia</strong> | Prof. Everton Correa | 2026</p>
+        </div>
+        <div id="cloud-status" style="font-size: 12px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 20px;">
+            Iniciando...
+        </div>
+    </header>
+
+    <nav class="main-nav no-print">
+        <button class="nav-btn active" id="btn-tab-turmas" onclick="switchTab('turmas')">🗺️ Gestão de Turmas</button>
+        <button class="nav-btn" id="btn-tab-notas" onclick="switchTab('notas')">📝 Diário de Notas</button>
+    </nav>
+
+    <!-- ABA 1: GESTÃO -->
+    <section id="sec-turmas" class="content-section active">
+        <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px;">
+            <div class="card">
+                <h3>🆕 Criar Turma</h3>
+                <input type="text" id="novaTurmaNome" placeholder="Ex: 8º Ano A">
+                <button class="btn-main" style="margin-top:10px; width:100%" onclick="adicionarTurma()">Confirmar Turma</button>
+            </div>
+            <div class="card">
+                <h3>👥 Cadastro em Lote</h3>
+                <select id="selectTurmaCadastro" style="margin-bottom:10px"></select>
+                <textarea id="nomesLote" style="height: 100px" placeholder="Cole a lista de chamada (um por linha)..."></textarea>
+                <button class="btn-success" style="margin-top:10px; width:100%" onclick="processarInclusao()">📍 Mapear Alunos</button>
+            </div>
+        </div>
+        <div id="listaTurmasAlunos"></div>
+    </section>
+
+    <!-- ABA 2: NOTAS -->
+    <section id="sec-notas" class="content-section">
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>📊 Diário Geográfico</h2>
+            <div style="display:flex; gap:10px;" class="no-print">
+                <button id="btnTrava" onclick="toggleTrava()" style="display:none"></button>
+                <button class="btn-success" onclick="exportarExcel()">📥 Excel</button>
+                <button class="btn-main" style="background:#636e72" onclick="imprimirRelatorio()">🖨️ Imprimir</button>
+            </div>
+        </div>
+
+        <div class="filter-bar no-print">
+            <select id="selectTurmaNotas" onchange="renderizarTabelaNotas()" style="width:200px"></select>
+            <input type="text" id="filtroNome" placeholder="🔍 Filtrar aluno..." onkeyup="renderizarTabelaNotas()" style="flex:1">
+        </div>
+
+        <table id="tabelaNotas">
+            <thead>
+                <tr>
+                    <th>Estudante (A-Z)</th>
+                    <th width="100">V. Total</th>
+                    <th width="100">Nota</th>
+                    <th width="120">Aproveit.</th>
+                    <th>Observações de Geografia</th>
+                </tr>
+            </thead>
+            <tbody id="corpoNotas"></tbody>
+        </table>
+    </section>
+</div>
+
+<script>
+    // --- CONFIGURAÇÃO SUPABASE ---
+    const SUPABASE_URL = 'COLOQUE_SUA_URL_AQUI';
+    const SUPABASE_KEY = 'COLOQUE_SUA_KEY_ANON_AQUI';
+    
+    let supabase = null;
+    if(SUPABASE_URL.startsWith('http')) {
+        supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+
+    let db = JSON.parse(localStorage.getItem('geo_vFinal_2026')) || { turmas: {}, notas: {}, status: {} };
+
+    async function salvar() {
+        localStorage.setItem('geo_vFinal_2026', JSON.stringify(db));
+        if(supabase) {
+            const { error } = await supabase.from('diario_geografia').update({ dados: db }).eq('id', 1);
+            document.getElementById('cloud-status').innerText = error ? "❌ Erro Sinc" : "☁️ Sincronizado";
+        } else {
+            document.getElementById('cloud-status').innerText = "⚠️ Modo Local";
+        }
+    }
+
+    async function carregarDadosNuvem() {
+        if(supabase) {
+            const { data } = await supabase.from('diario_geografia').select('dados').eq('id', 1).single();
+            if(data) db = data.dados;
+            document.getElementById('cloud-status').innerText = "☁️ Nuvem Carregada";
+        }
+        renderizarTurmas();
+        switchTab('turmas');
+    }
+
+    // --- LOGICA DE NAVEGAÇÃO ---
+    function switchTab(tab) {
+        document.querySelectorAll('.nav-btn, .content-section').forEach(el => el.classList.remove('active'));
+        if(tab === 'turmas') {
+            document.getElementById('btn-tab-turmas').classList.add('active');
+            document.getElementById('sec-turmas').classList.add('active');
+            renderizarTurmas();
+        } else {
+            document.getElementById('btn-tab-notas').classList.add('active');
+            document.getElementById('sec-notas').classList.add('active');
+            atualizarSelects();
+            sincronizarNotas();
+        }
+    }
+
+    // --- GESTÃO DE TURMAS ---
+    function adicionarTurma() {
+        const nome = document.getElementById('novaTurmaNome').value.trim();
+        if(nome && !db.turmas[nome]) {
+            db.turmas[nome] = []; db.status[nome] = 'aberto';
+            salvar(); renderizarTurmas(); document.getElementById('novaTurmaNome').value = '';
+        }
+    }
+
+    function processarInclusao() {
+        const t = document.getElementById('selectTurmaCadastro').value;
+        const nomes = document.getElementById('nomesLote').value.split('\n');
+        if(!t) return alert("Selecione a turma!");
+        nomes.forEach(n => { if(n.trim()) db.turmas[t].push(n.trim()); });
+        salvar(); renderizarTurmas(); document.getElementById('nomesLote').value = '';
+    }
+
+    function removerAluno(t, i) {
+        if(db.status[t] === 'fechado') return alert("Turma bloqueada!");
+        if(confirm("Excluir aluno?")) {
+            const aluno = db.turmas[t][i];
+            db.turmas[t].splice(i, 1);
+            if(db.notas[t]) delete db.notas[t][aluno];
+            salvar(); renderizarTurmas();
+        }
+    }
+
+    function moverAluno(origem, index) {
+        const aluno = db.turmas[origem][index];
+        const destino = prompt(`Mover ${aluno} para qual turma?`, "");
+        if (destino && db.turmas[destino]) {
+            db.turmas[destino].push(aluno);
+            if (db.notas[origem] && db.notas[origem][aluno]) {
+                if (!db.notas[destino]) db.notas[destino] = {};
+                db.notas[destino][aluno] = db.notas[origem][aluno];
+                delete db.notas[origem][aluno];
+            }
+            db.turmas[origem].splice(index, 1);
+            salvar(); renderizarTurmas();
+        }
+    }
+
+    function renderizarTurmas() {
+        const container = document.getElementById('listaTurmasAlunos');
+        container.innerHTML = '';
+        for(let t in db.turmas) {
+            let html = `<div class="card"><strong style="color:var(--oceano)">📍 ${t}</strong><ul style="list-style:none; padding:0; margin-top:10px;">`;
+            db.turmas[t].forEach((aluno, i) => {
+                html += `<li style="padding:8px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                    ${aluno} <div>
+                        <button onclick="moverAluno('${t}', ${i})" style="padding:4px 8px; font-size:10px; background:#bdc3c7">Mover</button>
+                        <button onclick="removerAluno('${t}', ${i})" style="color:red; background:none;">✕</button>
+                    </div></li>`;
+            });
+            container.innerHTML += html + `</ul></div>`;
+        }
+        atualizarSelects();
+    }
+
+    // --- DIÁRIO DE NOTAS ---
+    function atualizarSelects() {
+        const s1 = document.getElementById('selectTurmaCadastro'), s2 = document.getElementById('selectTurmaNotas');
+        const v1 = s1.value, v2 = s2.value;
+        [s1, s2].forEach(s => {
+            s.innerHTML = '<option value="">-- Escolher Turma --</option>';
+            Object.keys(db.turmas).sort().forEach(t => s.innerHTML += `<option value="${t}">${t}</option>`);
+        });
+        s1.value = v1; s2.value = v2;
+    }
+
+    function sincronizarNotas() {
+        for(let t in db.turmas) {
+            if(!db.notas[t]) db.notas[t] = {};
+            db.turmas[t].forEach(aluno => {
+                if(!db.notas[t][aluno]) db.notas[t][aluno] = { vt: 0, vo: 0, obs: '' };
+            });
+        }
+        salvar();
+    }
+
+    function renderizarTabelaNotas() {
+        const t = document.getElementById('selectTurmaNotas').value;
+        const filtro = document.getElementById('filtroNome').value.toLowerCase();
+        const corpo = document.getElementById('corpoNotas');
+        const btn = document.getElementById('btnTrava');
+        corpo.innerHTML = '';
+        if(!t) { btn.style.display = 'none'; return; }
+        
+        btn.style.display = 'block';
+        const isF = db.status[t] === 'fechado';
+        btn.innerText = isF ? "🔓 Desbloquear" : "🔒 Travar Bimestre";
+        btn.className = isF ? "btn-main" : "btn-lock";
+
+        const lista = Object.keys(db.notas[t]).sort((a,b) => a.localeCompare(b));
+        lista.forEach(aluno => {
+            if(!aluno.toLowerCase().includes(filtro)) return;
+            const d = db.notas[t][aluno];
+            const p = d.vt > 0 ? (d.vo / d.vt * 100) : 0;
+            corpo.innerHTML += `
+                <tr style="${isF ? 'background:#f2f2f2' : ''}">
+                    <td><strong>${aluno}</strong></td>
+                    <td><input type="number" step="0.1" value="${d.vt}" onchange="atualizarValor('${t}','${aluno}','vt',this.value)" ${isF?'disabled':''}></td>
+                    <td><input type="number" step="0.1" value="${d.vo}" onchange="atualizarValor('${t}','${aluno}','vo',this.value)" ${isF?'disabled':''}></td>
+                    <td class="${p < 60 ? 'abaixo-media' : 'na-media'}">${p.toFixed(1)}%</td>
+                    <td><textarea onchange="atualizarValor('${t}','${aluno}','obs',this.value)" ${isF?'disabled':''}>${d.obs}</textarea></td>
+                </tr>`;
+        });
+    }
+
+    function atualizarValor(t, a, c, v) {
+        db.notas[t][a][c] = c === 'obs' ? v : parseFloat(v) || 0;
+        salvar();
+        if(c !== 'obs') renderizarTabelaNotas();
+    }
+
+    function toggleTrava() {
+        const t = document.getElementById('selectTurmaNotas').value;
+        db.status[t] = db.status[t] === 'aberto' ? 'fechado' : 'aberto';
+        salvar(); renderizarTabelaNotas();
+    }
+
+    function imprimirRelatorio() {
+        const t = document.getElementById('selectTurmaNotas').value;
+        if(!t) return alert("Selecione uma turma!");
+        document.getElementById('print-turma-txt').innerText = "Relatório da Turma: " + t;
+        window.print();
+    }
+
+    function exportarExcel() {
+        const t = document.getElementById('selectTurmaNotas').value;
+        if(!t) return;
+        const filtro = document.getElementById('filtroNome').value.toLowerCase();
+        let csv = `GEOGRAFIA 2026 - ALBERTINA ALVES - PROF EVERTON\nTURMA: ${t}\n\nEstudante;Valor;Obtido;%;Observações\n`;
+        const lista = Object.keys(db.notas[t]).sort();
+        lista.forEach(a => {
+            if(!a.toLowerCase().includes(filtro)) return;
+            const d = db.notas[t][a];
+            csv += `${a};${d.vt};${d.vo};${(d.vt>0?d.vo/d.vt*100:0).toFixed(1)}%;${d.obs.replace(/;/g, ',')}\n`;
+        });
+        const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Geo_2026_${t}.csv`;
+        link.click();
+    }
+
+    window.onload = carregarDadosNuvem;
+</script>
+</body>
+</html>
