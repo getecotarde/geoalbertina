@@ -1840,32 +1840,58 @@ async function driveLoadFolder(folderId, folderName) {
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-beta': 'mcp-client-2025-04-04'
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
+        model: 'claude-sonnet-4-5',
+        max_tokens: 4000,
         messages: [{
           role: 'user',
-          content: 'Use the Google Drive MCP to list files in folder. Query: ' + query + '. Return only a JSON array with objects having: id, name, mimeType, modifiedTime, size, webViewLink. No explanation, just the JSON array.'
+          content: 'Use the Google Drive MCP gdrive tool to list files. Query filter: ' + query + '. After listing, return ONLY a raw JSON array (no markdown, no explanation) where each object has: id, name, mimeType, modifiedTime, size, webViewLink, shared.'
         }],
         mcp_servers: [{ type: 'url', url: 'https://drivemcp.googleapis.com/mcp/v1', name: 'gdrive' }]
       })
     });
 
     const data = await res.json();
-    const textBlock = (data.content || []).find(b => b.type === 'text');
+
+    // Check for API-level errors
+    if (data.error) throw new Error(data.error.message || 'API error');
+
     let files = [];
-    if (textBlock && textBlock.text) {
+
+    // Helper to try parsing JSON from a string
+    function tryParseFiles(str) {
+      if (!str) return null;
       try {
-        const clean = textBlock.text.replace(/```json|```/g, '').trim();
+        const clean = str.replace(/```json|```/g, '').trim();
         const parsed = JSON.parse(clean);
-        files = Array.isArray(parsed) ? parsed : (parsed.files || parsed.items || []);
+        return Array.isArray(parsed) ? parsed : (parsed.files || parsed.items || null);
       } catch(e) {
-        // Try to extract JSON array from text
-        const match = textBlock.text.match(/\[[\s\S]*\]/);
-        if (match) {
-          try { files = JSON.parse(match[0]); } catch(e2) { files = []; }
-        }
+        const match = str.match(/\[[\s\S]*\]/);
+        if (match) { try { return JSON.parse(match[0]); } catch(e2) {} }
+        return null;
+      }
+    }
+
+    const blocks = data.content || [];
+
+    // 1) Try mcp_tool_result blocks first (most reliable)
+    const toolResults = blocks.filter(b => b.type === 'mcp_tool_result');
+    for (const tr of toolResults) {
+      const raw = Array.isArray(tr.content) ? (tr.content[0]?.text || '') : (tr.content || '');
+      const parsed = tryParseFiles(raw);
+      if (parsed && parsed.length >= 0) { files = parsed; break; }
+    }
+
+    // 2) Fall back to text blocks
+    if (!toolResults.length || files.length === 0) {
+      const textBlocks = blocks.filter(b => b.type === 'text');
+      for (const tb of textBlocks) {
+        const parsed = tryParseFiles(tb.text);
+        if (parsed !== null) { files = parsed; break; }
       }
     }
 
