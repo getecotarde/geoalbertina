@@ -343,6 +343,33 @@ thead th.t3-col { background: #fef3c7; }
 }
 .btn-sair:hover { background: rgba(248,113,113,.25); border-color: rgba(248,113,113,.5); }
 
+/* ─── NUVEM / GOOGLE DRIVE ──────────────────────────────────────────────── */
+.drive-box { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+.drive-header { padding: 14px 20px; background: linear-gradient(90deg, var(--ocean) 0%, var(--ocean-mid) 100%); display: flex; align-items: center; gap: 12px; }
+.drive-header-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: white; flex: 1; }
+.drive-header-status { font-size: 11px; color: rgba(255,255,255,.65); }
+.drive-toolbar { padding: 10px 18px; background: var(--sky-pale); border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.drive-path { flex: 1; min-width: 140px; background: var(--white); border: 1px solid var(--border-2); border-radius: var(--radius); padding: 6px 12px; font-size: 12px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+.drive-search { width: 180px; padding: 6px 12px; border: 1px solid var(--border-2); border-radius: var(--radius); font-size: 12px; background: var(--white); color: var(--ink); outline: none; }
+.drive-search:focus { border-color: var(--ocean-light); box-shadow: 0 0 0 3px rgba(59,130,212,.1); }
+.drive-file-item { display: flex; align-items: center; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+.drive-file-item:last-child { border-bottom: none; }
+.drive-file-item:hover { background: var(--sky-pale); }
+.drive-file-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.drive-file-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--ink); }
+.drive-file-meta { font-size: 11px; color: var(--ink-3); text-align: right; line-height: 1.5; }
+.drive-status-bar { padding: 8px 20px; background: var(--sky-pale); border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink-3); }
+.drive-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.drive-dot.connected { background: #4ade80; }
+.drive-dot.loading { background: #fbbf24; animation: pulse .8s infinite; }
+.drive-dot.off { background: var(--border-2); }
+.drive-empty { text-align: center; padding: 48px 24px; color: var(--ink-3); }
+.drive-empty-icon { font-size: 40px; opacity: .3; display: block; margin-bottom: 10px; }
+.drive-skeleton { background: var(--sky-pale); border-radius: 6px; animation: pulse 1.4s ease-in-out infinite; }
+.drive-tag { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: var(--sky); color: var(--ocean-mid); border: 1px solid #b3d4f7; margin-left: 6px; vertical-align: middle; }
+.drive-btn-connect { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: white; font-size: 11px; font-weight: 600; cursor: pointer; transition: all .2s; font-family: 'DM Sans', sans-serif; }
+.drive-btn-connect:hover { background: rgba(255,255,255,.2); }
+
 @media print {
   .app-header, .app-nav, .no-print, .toolbar .btn-group, .filter-bar { display: none !important; }
   body { background: white; padding: 0; }
@@ -437,6 +464,9 @@ CREATE POLICY "acesso_total" ON diario FOR ALL USING (true) WITH CHECK (true);</
   </button>
   <button class="nav-tab" id="tab-anotacoes" onclick="goTab('anotacoes')">
     <span class="tab-ico">📝</span> Anotações 9ºA
+  </button>
+  <button class="nav-tab" id="tab-nuvem" onclick="goTab('nuvem')">
+    <span class="tab-ico">☁️</span> Nuvem
   </button>
 </nav>
 
@@ -540,6 +570,60 @@ CREATE POLICY "acesso_total" ON diario FOR ALL USING (true) WITH CHECK (true);</
           <span style="font-size:36px;display:block;margin-bottom:10px;opacity:.3">📝</span>
           Selecione um aluno ao lado para registrar anotações.
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ABA NUVEM -->
+  <section id="page-nuvem" class="page">
+    <div class="toolbar no-print">
+      <div class="toolbar-title">☁️ Nuvem · Google Drive</div>
+      <div class="btn-group">
+        <button class="btn btn-sm" id="drive-refresh-btn" onclick="driveRefresh()" style="display:none">↻ Atualizar</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--ink-3);margin-bottom:18px">Acesse e navegue pelos arquivos do seu Google Drive sem sair da plataforma.</p>
+
+    <div class="drive-box">
+      <!-- Cabeçalho -->
+      <div class="drive-header">
+        <svg width="22" height="22" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+          <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+          <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
+          <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+          <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+          <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+          <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+        </svg>
+        <span class="drive-header-title">Google Drive</span>
+        <span class="drive-header-status" id="drive-header-status">Desconectado</span>
+        <button class="drive-btn-connect" id="drive-connect-btn" onclick="driveConnect()">+ Conectar</button>
+      </div>
+
+      <!-- Barra de ferramentas -->
+      <div class="drive-toolbar" id="drive-toolbar" style="display:none">
+        <div class="drive-path">
+          <span style="opacity:.5;font-size:13px">📁</span>
+          <span id="drive-current-path">Meu Drive</span>
+        </div>
+        <input class="drive-search" id="drive-search" placeholder="🔍 Buscar arquivos..." oninput="driveFilter(this.value)">
+        <button class="btn btn-sm" onclick="driveGoBack()" id="drive-back-btn" style="display:none">← Voltar</button>
+      </div>
+
+      <!-- Lista de arquivos -->
+      <div id="drive-file-list">
+        <div class="drive-empty">
+          <span class="drive-empty-icon">☁️</span>
+          Clique em <strong>+ Conectar</strong> para acessar seu Google Drive
+        </div>
+      </div>
+
+      <!-- Barra de status -->
+      <div class="drive-status-bar">
+        <div class="drive-dot off" id="drive-dot"></div>
+        <span id="drive-status-label">Aguardando conexão</span>
+        <span style="flex:1"></span>
+        <span id="drive-item-count" style="font-size:11px;color:var(--ink-3)"></span>
       </div>
     </div>
   </section>
@@ -697,6 +781,7 @@ function goTab(tab) {
   if (tab === 'turmas') renderizarTurmas();
   if (tab === 'notas') { atualizarSelects(); sincronizarNotas(); renderizarNotas(); }
   if (tab === 'mapeamento') { atualizarSelects(); renderizarMapeamento(); }
+  if (tab === 'nuvem') { /* Drive loads on demand via connect button */ }
   if (tab === 'anotacoes') {
     // Garante que o db está atualizado antes de renderizar
     carregarDoSupabase().then(() => {
@@ -1659,6 +1744,212 @@ function abrirModal(icon, titulo, msg, onConfirm) {
 
 function fecharModal() {
   document.getElementById('modal').style.display = 'none';
+}
+
+// ─── GOOGLE DRIVE (MCP) ──────────────────────────────────────────────────────
+let driveConnected = false;
+let driveAllFiles = [];
+let driveStack = []; // breadcrumb stack [{id, name}]
+let driveCurrentFolderId = 'root';
+
+const DRIVE_FILE_ICONS = {
+  'application/vnd.google-apps.folder': { emoji: '📁', bg: '#FFF8E1' },
+  'application/vnd.google-apps.document': { emoji: '📄', bg: '#E3F2FD' },
+  'application/vnd.google-apps.spreadsheet': { emoji: '📊', bg: '#E8F5E9' },
+  'application/vnd.google-apps.presentation': { emoji: '📑', bg: '#FFF3E0' },
+  'application/pdf': { emoji: '📕', bg: '#FFEBEE' },
+  'image/': { emoji: '🖼️', bg: '#FCE4EC' },
+  'video/': { emoji: '🎬', bg: '#EDE7F6' },
+  'audio/': { emoji: '🎵', bg: '#E0F7FA' },
+  'text/': { emoji: '📝', bg: '#F3E5F5' },
+  'application/zip': { emoji: '🗜️', bg: '#EFEBE9' },
+  'default': { emoji: '📎', bg: '#ECEFF1' },
+};
+
+function getDriveIcon(mimeType) {
+  if (!mimeType) return DRIVE_FILE_ICONS['default'];
+  for (const key in DRIVE_FILE_ICONS) {
+    if (mimeType === key || mimeType.startsWith(key)) return DRIVE_FILE_ICONS[key];
+  }
+  return DRIVE_FILE_ICONS['default'];
+}
+
+function formatDriveSize(bytes) {
+  if (!bytes || bytes === 0) return '—';
+  const b = parseInt(bytes);
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(0) + ' KB';
+  if (b < 1073741824) return (b/1048576).toFixed(1) + ' MB';
+  return (b/1073741824).toFixed(2) + ' GB';
+}
+
+function formatDriveDate(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 86400000) return 'Hoje';
+    if (diff < 172800000) return 'Ontem';
+    if (diff < 604800000) return Math.floor(diff/86400000) + ' dias atrás';
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  } catch(e) { return dateStr.slice(0,10); }
+}
+
+function driveSetStatus(state, msg) {
+  const dot = document.getElementById('drive-dot');
+  const lbl = document.getElementById('drive-status-label');
+  if (!dot || !lbl) return;
+  dot.className = 'drive-dot ' + state;
+  lbl.textContent = msg;
+}
+
+function driveShowSkeletons() {
+  const list = document.getElementById('drive-file-list');
+  list.innerHTML = [1,2,3,4,5].map(() => `
+    <div class="drive-file-item">
+      <div class="drive-skeleton" style="width:34px;height:34px;border-radius:8px;flex-shrink:0"></div>
+      <div style="flex:1">
+        <div class="drive-skeleton" style="height:12px;width:50%;margin-bottom:7px"></div>
+        <div class="drive-skeleton" style="height:10px;width:25%"></div>
+      </div>
+      <div class="drive-skeleton" style="height:10px;width:60px"></div>
+    </div>`).join('');
+}
+
+async function driveConnect() {
+  document.getElementById('drive-connect-btn').textContent = 'Conectando...';
+  document.getElementById('drive-connect-btn').disabled = true;
+  driveSetStatus('loading', 'Conectando ao Google Drive...');
+  driveShowSkeletons();
+  document.getElementById('drive-toolbar').style.display = 'flex';
+  await driveLoadFolder('root', 'Meu Drive');
+}
+
+async function driveLoadFolder(folderId, folderName) {
+  driveSetStatus('loading', 'Carregando arquivos...');
+  driveShowSkeletons();
+  driveCurrentFolderId = folderId;
+  document.getElementById('drive-current-path').textContent = driveStack.map(f => f.name).concat(folderName).join(' / ');
+  document.getElementById('drive-back-btn').style.display = driveStack.length > 0 ? '' : 'none';
+
+  try {
+    const query = folderId === 'root'
+      ? "'root' in parents and trashed=false"
+      : "'" + folderId + "' in parents and trashed=false";
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: 'Use the Google Drive MCP to list files in folder. Query: ' + query + '. Return only a JSON array with objects having: id, name, mimeType, modifiedTime, size, webViewLink. No explanation, just the JSON array.'
+        }],
+        mcp_servers: [{ type: 'url', url: 'https://drivemcp.googleapis.com/mcp/v1', name: 'gdrive' }]
+      })
+    });
+
+    const data = await res.json();
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    let files = [];
+    if (textBlock && textBlock.text) {
+      try {
+        const clean = textBlock.text.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(clean);
+        files = Array.isArray(parsed) ? parsed : (parsed.files || parsed.items || []);
+      } catch(e) {
+        // Try to extract JSON array from text
+        const match = textBlock.text.match(/\[[\s\S]*\]/);
+        if (match) {
+          try { files = JSON.parse(match[0]); } catch(e2) { files = []; }
+        }
+      }
+    }
+
+    // Sort: folders first, then by name
+    files.sort((a, b) => {
+      const aFolder = a.mimeType === 'application/vnd.google-apps.folder';
+      const bFolder = b.mimeType === 'application/vnd.google-apps.folder';
+      if (aFolder && !bFolder) return -1;
+      if (!aFolder && bFolder) return 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    driveAllFiles = files;
+    driveConnected = true;
+    driveRenderFiles(files);
+
+    document.getElementById('drive-header-status').textContent = 'Conectado';
+    document.getElementById('drive-connect-btn').textContent = '+ Adicionar conta';
+    document.getElementById('drive-connect-btn').disabled = false;
+    document.getElementById('drive-refresh-btn').style.display = '';
+    document.getElementById('drive-item-count').textContent = files.length + ' item(s)';
+    driveSetStatus('connected', 'Drive sincronizado');
+
+  } catch(e) {
+    console.warn('Drive error:', e);
+    driveSetStatus('off', 'Erro ao carregar — tente novamente');
+    document.getElementById('drive-connect-btn').textContent = '↻ Tentar novamente';
+    document.getElementById('drive-connect-btn').disabled = false;
+    document.getElementById('drive-file-list').innerHTML =
+      '<div class="drive-empty"><span class="drive-empty-icon">⚠️</span>Não foi possível conectar ao Google Drive.<br><small style="color:var(--ink-3)">Verifique se o Drive está habilitado nas configurações do Claude.</small></div>';
+  }
+}
+
+function driveRenderFiles(files) {
+  const list = document.getElementById('drive-file-list');
+  if (!files.length) {
+    list.innerHTML = '<div class="drive-empty"><span class="drive-empty-icon">📂</span>Esta pasta está vazia.</div>';
+    return;
+  }
+  list.innerHTML = files.map(f => {
+    const icon = getDriveIcon(f.mimeType);
+    const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+    const isShared = f.shared;
+    return `<div class="drive-file-item" onclick="driveOpenItem('${(f.id||'').replace(/'/g,"\\'")}','${(f.name||'').replace(/'/g,"\\'")}','${f.mimeType||''}','${f.webViewLink||''}')">
+      <div class="drive-file-icon" style="background:${icon.bg}">${icon.emoji}</div>
+      <div class="drive-file-name">
+        ${f.name || 'Sem nome'}
+        ${isShared ? '<span class="drive-tag">Compartilhado</span>' : ''}
+      </div>
+      <div class="drive-file-meta">
+        <div>${formatDriveDate(f.modifiedTime)}</div>
+        <div>${isFolder ? '—' : formatDriveSize(f.size)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function driveFilter(query) {
+  if (!driveConnected) return;
+  const q = query.toLowerCase();
+  driveRenderFiles(q ? driveAllFiles.filter(f => (f.name||'').toLowerCase().includes(q)) : driveAllFiles);
+}
+
+function driveOpenItem(id, name, mimeType, link) {
+  if (mimeType === 'application/vnd.google-apps.folder') {
+    driveStack.push({ id: driveCurrentFolderId, name: document.getElementById('drive-current-path').textContent.split(' / ').pop() });
+    driveLoadFolder(id, name);
+  } else if (link) {
+    if (confirm('Abrir "' + name + '" no Google Drive?')) window.open(link, '_blank');
+  } else {
+    toast('Arquivo: ' + name);
+  }
+}
+
+function driveGoBack() {
+  if (!driveStack.length) return;
+  const prev = driveStack.pop();
+  const prevName = driveStack.length ? driveStack[driveStack.length-1].name : 'Meu Drive';
+  driveLoadFolder(prev.id, prevName);
+}
+
+function driveRefresh() {
+  const currentName = document.getElementById('drive-current-path').textContent.split(' / ').pop();
+  driveLoadFolder(driveCurrentFolderId, currentName);
 }
 
 // ─── LOGIN / LOGOUT ──────────────────────────────────────────────────────────
