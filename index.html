@@ -370,6 +370,77 @@ thead th.t3-col { background: #fef3c7; }
 .drive-btn-connect { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); color: white; font-size: 11px; font-weight: 600; cursor: pointer; transition: all .2s; font-family: 'DM Sans', sans-serif; }
 .drive-btn-connect:hover { background: rgba(255,255,255,.2); }
 
+/* ─── MODAL AUTENTICAÇÃO DRIVE ─────────────────────────────────────── */
+#drive-auth-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(15,23,42,.6);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn .18s ease;
+}
+#drive-auth-overlay.hidden { display: none; }
+.drive-auth-card {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 36px 32px 28px;
+  width: 100%; max-width: 420px;
+  box-shadow: 0 24px 60px rgba(15,23,42,.22);
+  position: relative;
+}
+.drive-auth-logo {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.drive-auth-logo-txt {
+  font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800;
+  color: var(--ink); letter-spacing: -.3px;
+}
+.drive-auth-title {
+  font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
+  color: var(--ink); text-align: center; margin-bottom: 4px;
+}
+.drive-auth-sub {
+  font-size: 12px; color: var(--ink-3); text-align: center;
+  margin-bottom: 24px; line-height: 1.6;
+}
+.drive-auth-field { margin-bottom: 14px; }
+.drive-auth-field label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: var(--ink-3); text-transform: uppercase;
+  letter-spacing: .5px; margin-bottom: 6px;
+}
+.drive-auth-field input {
+  width: 100%; padding: 10px 13px;
+  border: 1.5px solid var(--border-2); border-radius: 10px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--ink);
+  outline: none; transition: border .15s, box-shadow .15s;
+  background: var(--white);
+}
+.drive-auth-field input:focus {
+  border-color: var(--ocean-light);
+  box-shadow: 0 0 0 3px rgba(59,130,212,.12);
+}
+.drive-auth-field input.erro { border-color: #f87171; box-shadow: 0 0 0 3px rgba(248,113,113,.1); }
+.drive-auth-hint {
+  font-size: 11px; color: var(--ink-3); margin-top: 5px; line-height: 1.5;
+}
+.drive-auth-hint a { color: var(--ocean-mid); text-decoration: none; }
+.drive-auth-hint a:hover { text-decoration: underline; }
+.drive-auth-erro {
+  font-size: 12px; color: var(--red); text-align: center;
+  min-height: 18px; margin-bottom: 10px; font-weight: 500;
+}
+.drive-auth-actions { display: flex; gap: 10px; margin-top: 6px; }
+.drive-auth-actions .btn { flex: 1; justify-content: center; }
+.drive-auth-close {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; font-size: 18px;
+  color: var(--ink-3); cursor: pointer; line-height: 1;
+  border-radius: 6px; padding: 2px 6px;
+  transition: background .15s;
+}
+.drive-auth-close:hover { background: var(--sky-pale); }
+
 @media print {
   .app-header, .app-nav, .no-print, .toolbar .btn-group, .filter-bar { display: none !important; }
   body { background: white; padding: 0; }
@@ -629,6 +700,54 @@ CREATE POLICY "acesso_total" ON diario FOR ALL USING (true) WITH CHECK (true);</
   </section>
 
 </main>
+
+<!-- MODAL AUTENTICAÇÃO GOOGLE DRIVE -->
+<div id="drive-auth-overlay" class="hidden">
+  <div class="drive-auth-card">
+    <button class="drive-auth-close" onclick="driveAuthFechar()" title="Fechar">✕</button>
+
+    <div class="drive-auth-logo">
+      <svg viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+        <path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+        <path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/>
+        <path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/>
+        <path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/>
+        <path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
+        <path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+      </svg>
+      <span class="drive-auth-logo-txt">Google Drive</span>
+    </div>
+
+    <div class="drive-auth-title">Conectar ao Google Drive</div>
+    <div class="drive-auth-sub">Insira suas credenciais para acessar os arquivos do Drive diretamente nesta plataforma.</div>
+
+    <div class="drive-auth-field">
+      <label>📧 E-mail da conta Google</label>
+      <input type="email" id="drive-auth-email" placeholder="professor@gmail.com"
+        onkeydown="if(event.key==='Enter') document.getElementById('drive-auth-apikey').focus()">
+      <div class="drive-auth-hint">Conta vinculada ao Google Drive que deseja acessar.</div>
+    </div>
+
+    <div class="drive-auth-field">
+      <label>🔑 Chave de API / Token de acesso</label>
+      <input type="password" id="drive-auth-apikey" placeholder="••••••••••••••••••••"
+        onkeydown="if(event.key==='Enter') driveAuthConfirmar()">
+      <div class="drive-auth-hint">
+        Token OAuth ou chave de serviço do Google Cloud.<br>
+        <a href="https://console.cloud.google.com/apis/credentials" target="_blank">↗ Gerar no Google Cloud Console</a>
+      </div>
+    </div>
+
+    <div class="drive-auth-erro" id="drive-auth-erro"></div>
+
+    <div class="drive-auth-actions">
+      <button class="btn" onclick="driveAuthFechar()">Cancelar</button>
+      <button class="btn btn-primary" onclick="driveAuthConfirmar()" id="drive-auth-btn-confirmar">
+        🔗 Conectar
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL -->
 <div class="modal-overlay" id="modal" style="display:none" onclick="if(event.target===this)fecharModal()">
@@ -1817,13 +1936,85 @@ function driveShowSkeletons() {
     </div>`).join('');
 }
 
-async function driveConnect() {
+// ─── DRIVE AUTH MODAL ────────────────────────────────────────────────────────
+let driveAuthEmail = '';
+let driveAuthToken = '';
+
+function driveConnect() {
+  // Se já tem credenciais salvas, reconecta direto
+  const saved = sessionStorage.getItem('drive_auth');
+  if (saved) {
+    try {
+      const { email, token } = JSON.parse(saved);
+      driveAuthEmail = email;
+      driveAuthToken = token;
+      driveAuthIniciar();
+      return;
+    } catch(e) {}
+  }
+  // Abre modal de autenticação
+  document.getElementById('drive-auth-overlay').classList.remove('hidden');
+  document.getElementById('drive-auth-erro').textContent = '';
+  document.getElementById('drive-auth-email').value = '';
+  document.getElementById('drive-auth-apikey').value = '';
+  setTimeout(() => document.getElementById('drive-auth-email').focus(), 80);
+}
+
+function driveAuthFechar() {
+  document.getElementById('drive-auth-overlay').classList.add('hidden');
+}
+
+function driveAuthConfirmar() {
+  const email = document.getElementById('drive-auth-email').value.trim();
+  const token = document.getElementById('drive-auth-apikey').value.trim();
+  const erroEl = document.getElementById('drive-auth-erro');
+
+  // Validações básicas
+  erroEl.textContent = '';
+  document.getElementById('drive-auth-email').classList.remove('erro');
+  document.getElementById('drive-auth-apikey').classList.remove('erro');
+
+  if (!email) {
+    document.getElementById('drive-auth-email').classList.add('erro');
+    erroEl.textContent = '⚠️ Informe o e-mail da conta Google.';
+    document.getElementById('drive-auth-email').focus();
+    return;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    document.getElementById('drive-auth-email').classList.add('erro');
+    erroEl.textContent = '⚠️ E-mail inválido.';
+    document.getElementById('drive-auth-email').focus();
+    return;
+  }
+  if (!token) {
+    document.getElementById('drive-auth-apikey').classList.add('erro');
+    erroEl.textContent = '⚠️ Informe a chave de API / token de acesso.';
+    document.getElementById('drive-auth-apikey').focus();
+    return;
+  }
+  if (token.length < 10) {
+    document.getElementById('drive-auth-apikey').classList.add('erro');
+    erroEl.textContent = '⚠️ Token muito curto. Verifique e tente novamente.';
+    document.getElementById('drive-auth-apikey').focus();
+    return;
+  }
+
+  // Salva na sessão e inicia conexão
+  driveAuthEmail = email;
+  driveAuthToken = token;
+  sessionStorage.setItem('drive_auth', JSON.stringify({ email, token }));
+
+  driveAuthFechar();
+  driveAuthIniciar();
+}
+
+function driveAuthIniciar() {
   document.getElementById('drive-connect-btn').textContent = 'Conectando...';
   document.getElementById('drive-connect-btn').disabled = true;
   driveSetStatus('loading', 'Conectando ao Google Drive...');
   driveShowSkeletons();
   document.getElementById('drive-toolbar').style.display = 'flex';
-  await driveLoadFolder('root', 'Meu Drive');
+  driveLoadFolder('root', 'Meu Drive');
 }
 
 async function driveLoadFolder(folderId, folderName) {
@@ -1838,15 +2029,16 @@ async function driveLoadFolder(folderId, folderName) {
       ? "'root' in parents and trashed=false"
       : "'" + folderId + "' in parents and trashed=false";
 
+    const headers = { 'Content-Type': 'application/json', 'anthropic-beta': 'mcp-client-2025-04-04' };
+    if (driveAuthToken) headers['x-drive-token'] = driveAuthToken;
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-beta': 'mcp-client-2025-04-04'
-      },
+      headers,
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 4000,
+        system: driveAuthEmail ? 'Authenticated Google account: ' + driveAuthEmail : undefined,
         messages: [{
           role: 'user',
           content: 'Use the Google Drive MCP gdrive tool to list files. Query filter: ' + query + '. After listing, return ONLY a raw JSON array (no markdown, no explanation) where each object has: id, name, mimeType, modifiedTime, size, webViewLink, shared.'
@@ -1856,13 +2048,10 @@ async function driveLoadFolder(folderId, folderName) {
     });
 
     const data = await res.json();
-
-    // Check for API-level errors
     if (data.error) throw new Error(data.error.message || 'API error');
 
     let files = [];
 
-    // Helper to try parsing JSON from a string
     function tryParseFiles(str) {
       if (!str) return null;
       try {
@@ -1877,16 +2066,12 @@ async function driveLoadFolder(folderId, folderName) {
     }
 
     const blocks = data.content || [];
-
-    // 1) Try mcp_tool_result blocks first (most reliable)
     const toolResults = blocks.filter(b => b.type === 'mcp_tool_result');
     for (const tr of toolResults) {
       const raw = Array.isArray(tr.content) ? (tr.content[0]?.text || '') : (tr.content || '');
       const parsed = tryParseFiles(raw);
-      if (parsed && parsed.length >= 0) { files = parsed; break; }
+      if (parsed !== null) { files = parsed; break; }
     }
-
-    // 2) Fall back to text blocks
     if (!toolResults.length || files.length === 0) {
       const textBlocks = blocks.filter(b => b.type === 'text');
       for (const tb of textBlocks) {
@@ -1895,12 +2080,11 @@ async function driveLoadFolder(folderId, folderName) {
       }
     }
 
-    // Sort: folders first, then by name
     files.sort((a, b) => {
-      const aFolder = a.mimeType === 'application/vnd.google-apps.folder';
-      const bFolder = b.mimeType === 'application/vnd.google-apps.folder';
-      if (aFolder && !bFolder) return -1;
-      if (!aFolder && bFolder) return 1;
+      const aF = a.mimeType === 'application/vnd.google-apps.folder';
+      const bF = b.mimeType === 'application/vnd.google-apps.folder';
+      if (aF && !bF) return -1;
+      if (!aF && bF) return 1;
       return (a.name || '').localeCompare(b.name || '');
     });
 
@@ -1908,20 +2092,22 @@ async function driveLoadFolder(folderId, folderName) {
     driveConnected = true;
     driveRenderFiles(files);
 
-    document.getElementById('drive-header-status').textContent = 'Conectado';
-    document.getElementById('drive-connect-btn').textContent = '+ Adicionar conta';
+    const emailShort = driveAuthEmail ? ' · ' + driveAuthEmail.split('@')[0] : '';
+    document.getElementById('drive-header-status').textContent = 'Conectado' + emailShort;
+    document.getElementById('drive-connect-btn').textContent = '↻ Trocar conta';
     document.getElementById('drive-connect-btn').disabled = false;
     document.getElementById('drive-refresh-btn').style.display = '';
     document.getElementById('drive-item-count').textContent = files.length + ' item(s)';
-    driveSetStatus('connected', 'Drive sincronizado');
+    driveSetStatus('connected', 'Drive sincronizado · ' + (driveAuthEmail || ''));
 
   } catch(e) {
     console.warn('Drive error:', e);
     driveSetStatus('off', 'Erro ao carregar — tente novamente');
     document.getElementById('drive-connect-btn').textContent = '↻ Tentar novamente';
     document.getElementById('drive-connect-btn').disabled = false;
+    sessionStorage.removeItem('drive_auth');
     document.getElementById('drive-file-list').innerHTML =
-      '<div class="drive-empty"><span class="drive-empty-icon">⚠️</span>Não foi possível conectar ao Google Drive.<br><small style="color:var(--ink-3)">Verifique se o Drive está habilitado nas configurações do Claude.</small></div>';
+      '<div class="drive-empty"><span class="drive-empty-icon">⚠️</span>Não foi possível conectar ao Google Drive.<br><small style="color:var(--ink-3)">Verifique suas credenciais e tente novamente.</small></div>';
   }
 }
 
