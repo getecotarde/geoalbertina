@@ -444,25 +444,18 @@ thead th.t3-col { background: #fef3c7; }
 <!-- AVISO SQL (aparece só se tabela não existir) -->
 <div id="aviso-sql" style="display:none;background:#fef3c7;border-bottom:2px solid #fcd34d;padding:14px 28px;font-size:13px;color:#92400e">
   <strong>⚙️ Configuração necessária (apenas uma vez):</strong>
-  Execute o SQL abaixo no <a href="https://supabase.com/dashboard/project/hncvtarbayilviqbqogz/sql/new" target="_blank" style="color:#1d4ed8;font-weight:600">SQL Editor do Supabase</a> para criar a tabela:
+  Execute o arquivo <strong>01_criar_tabelas.sql</strong> no <a href="https://supabase.com/dashboard/project/hncvtarbayilviqbqogz/sql/new" target="_blank" style="color:#1d4ed8;font-weight:600">SQL Editor do Supabase</a> para criar as tabelas estruturadas.
   <br><br>
-  <code style="display:block;background:#fff8e1;border:1px solid #fcd34d;border-radius:8px;padding:12px;font-family:monospace;font-size:12px;white-space:pre;overflow-x:auto">CREATE TABLE IF NOT EXISTS diario (
-  id text PRIMARY KEY,
-  dados jsonb NOT NULL,
-  atualizado_em timestamptz DEFAULT now()
-);
-ALTER TABLE diario ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "acesso_total" ON diario FOR ALL USING (true) WITH CHECK (true);
+  <button onclick="document.getElementById('aviso-sql').style.display='none';carregarDoSupabase()" style="background:#1d4ed8;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px">✓ Já executei, tentar novamente</button>
+</div>
 
-CREATE TABLE IF NOT EXISTS auth_config (
-  id text PRIMARY KEY,
-  senha_hash text NOT NULL,
-  criado_em timestamptz DEFAULT now()
-);
-ALTER TABLE auth_config ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "acesso_total" ON auth_config FOR ALL USING (true) WITH CHECK (true);</code>
-  <br>
-  <button onclick="document.getElementById('aviso-sql').style.display='none';_pushSupabase()" style="background:#1d4ed8;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px">✓ Já executei, tentar novamente</button>
+<!-- AVISO MIGRAÇÃO (aparece quando há dados antigos na tabela diario) -->
+<div id="aviso-migracao" style="display:none;background:#e0f2fe;border-bottom:2px solid #38bdf8;padding:14px 28px;font-size:13px;color:#0c4a6e">
+  <strong>🔄 Migração de dados disponível:</strong>
+  Foram encontrados dados salvos no formato antigo. Clique abaixo para migrá-los para as novas tabelas estruturadas (alunos, notas, atividades, anotações).
+  <br><br>
+  <button onclick="migrarDadosAntigos()" style="background:#0369a1;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px">🔄 Migrar dados agora</button>
+  <button onclick="document.getElementById('aviso-migracao').style.display='none'" style="background:transparent;color:#0c4a6e;border:1px solid #7dd3fc;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;margin-left:8px">Ignorar</button>
 </div>
 
 <nav class="app-nav no-print">
@@ -603,10 +596,10 @@ CREATE POLICY "acesso_total" ON auth_config FOR ALL USING (true) WITH CHECK (tru
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 const SB_URL  = 'https://hncvtarbayilviqbqogz.supabase.co';
 const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhuY3Z0YXJiYXlpbHZpcWJxb2d6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjYyOTEwNSwiZXhwIjoyMDkyMjA1MTA1fQ.7uxNDiOi8ppKu1_UeWdRwz7M56aV3CyXI9WKGIAAhf8';
-const SB_HEADERS = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+const SB_HEADERS = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
 const DOC_ID = 'everton_2026';
 
-const STORAGE = 'geo_albertina_2026_v3';
+const STORAGE = 'geo_albertina_2026_v4';
 const N_ATIV = 6;
 const TRIMESTRES = [1, 2, 3];
 const TURMAS_FIXAS = ['8ºA','8ºB','8ºC','9ºA','9ºB','9ºC'];
@@ -619,82 +612,320 @@ if (!db.anotacoes)  db.anotacoes = {};
 let trimestreFiltro = 1;
 let _saveTimer = null;
 
-// ─── PERSISTÊNCIA ──────────────────────────────────────────────────────────────
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function sbFetch(path, options = {}) {
+  const headers = { ...SB_HEADERS, ...(options.headers || {}) };
+  return fetch(SB_URL + path, { ...options, headers });
+}
+
+function alunoId(turma, nome) {
+  return (turma + '_' + nome).replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
+}
+
+function notaId(turma, nome, tr, ativ) {
+  return alunoId(turma, nome) + '_t' + tr + '_a' + ativ;
+}
+
+function ativId(turma, tr, pos) {
+  return turma.replace(/\s+/g, '_').replace(/[^\w\-]/g, '') + '_t' + tr + '_a' + pos;
+}
+
+function anotId(turma, nome, tr) {
+  return alunoId(turma, nome) + '_t' + tr;
+}
+
+// ─── SALVAR (local + Supabase com debounce) ───────────────────────────────────
 async function salvar() {
   setSave('saving');
-  // Salva localmente de imediato (fallback offline)
   try { localStorage.setItem(STORAGE, JSON.stringify(db)); } catch(e) {}
-  // Debounce envio ao Supabase (evita flood em digitação)
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => _pushSupabase(), 800);
 }
 
 async function _pushSupabase() {
   try {
-    const payload = { id: DOC_ID, dados: db, atualizado_em: new Date().toISOString() };
-    const res = await fetch(SB_URL + '/rest/v1/diario', {
-      method: 'POST',
-      headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok || res.status === 201 || res.status === 204) {
-      setSave('ok');
-    } else {
-      const txt = await res.text();
-      // Se tabela não existe, mostra instrução
-      if (txt.includes('does not exist') || txt.includes('relation') || res.status === 404) {
-        setSave('error');
-        mostrarAvisoSQL();
-      } else {
-        setSave('error');
-        console.warn('Supabase save error:', res.status, txt);
-      }
-    }
+    await Promise.all([
+      _pushAlunos(),
+      _pushAtividades(),
+      _pushNotas(),
+      _pushAnotacoes(),
+      _pushStatus(),
+      _pushMapas()
+    ]);
+    setSave('ok');
   } catch(e) {
     setSave('error');
-    console.warn('Supabase offline, dados salvos localmente.', e);
+    console.warn('Supabase save error:', e);
   }
 }
 
+// Upsert genérico
+async function _upsert(table, rows) {
+  if (!rows.length) return true;
+  const res = await sbFetch('/rest/v1/' + table, {
+    method: 'POST',
+    headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(rows)
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    if (txt.includes('does not exist') || txt.includes('relation') || res.status === 404) mostrarAvisoSQL();
+    throw new Error(table + ' upsert failed: ' + res.status + ' ' + txt);
+  }
+  return true;
+}
+
+// Delete + upsert para sincronizar remoções
+async function _deleteWhere(table, column, value) {
+  const res = await sbFetch('/rest/v1/' + table + '?' + column + '=eq.' + encodeURIComponent(value), {
+    method: 'DELETE',
+    headers: { 'Prefer': 'return=minimal' }
+  });
+  return res.ok || res.status === 204;
+}
+
+async function _pushAlunos() {
+  const rows = [];
+  for (const turma in db.turmas) {
+    db.turmas[turma].forEach((nome, i) => {
+      rows.push({ id: alunoId(turma, nome), nome, turma, posicao: i, atualizado_em: new Date().toISOString() });
+    });
+  }
+  if (rows.length) await _upsert('alunos', rows);
+}
+
+async function _pushAtividades() {
+  const rows = [];
+  for (const turma in db.atividades) {
+    TRIMESTRES.forEach(tr => {
+      const list = (db.atividades[turma] && db.atividades[turma]['t'+tr]) || [];
+      list.forEach((a, i) => {
+        rows.push({
+          id: ativId(turma, tr, i+1),
+          turma, trimestre: tr, posicao: i+1,
+          nome: a.nome || '',
+          valor: a.valor !== '' && a.valor !== undefined ? parseFloat(a.valor) || null : null,
+          atualizado_em: new Date().toISOString()
+        });
+      });
+    });
+  }
+  if (rows.length) await _upsert('atividades', rows);
+}
+
+async function _pushNotas() {
+  const rows = [];
+  for (const turma in db.notas) {
+    for (const nome in db.notas[turma]) {
+      const n = db.notas[turma][nome];
+      const aid = alunoId(turma, nome);
+      TRIMESTRES.forEach(tr => {
+        for (let i = 1; i <= N_ATIV; i++) {
+          const key = 't'+tr+'_a'+i;
+          rows.push({
+            id: notaId(turma, nome, tr, i),
+            aluno_id: aid, turma, trimestre: tr, atividade: i,
+            nota: n[key] !== '' && n[key] !== undefined ? parseFloat(n[key]) || null : null,
+            obs: tr === 1 && i === 1 ? (n.obs || '') : '',
+            atualizado_em: new Date().toISOString()
+          });
+        }
+      });
+    }
+  }
+  if (rows.length) await _upsert('notas', rows);
+}
+
+async function _pushAnotacoes() {
+  if (!db.anotacoes) return;
+  const rows = [];
+  for (const nome in db.anotacoes) {
+    TRIMESTRES.forEach(tr => {
+      const d = (db.anotacoes[nome] && db.anotacoes[nome]['t'+tr]) || {};
+      rows.push({
+        id: anotId('9ºA', nome, tr),
+        aluno_id: alunoId('9ºA', nome),
+        turma: '9ºA', trimestre: tr,
+        participacao:  d.participacao  || '',
+        comportamento: d.comportamento || '',
+        aprendizagem:  d.aprendizagem  || '',
+        dificuldades:  d.dificuldades  || '',
+        destaques:     d.destaques     || '',
+        observacoes:   d.observacoes   || '',
+        atualizado_em: new Date().toISOString()
+      });
+    });
+  }
+  if (rows.length) await _upsert('anotacoes', rows);
+}
+
+async function _pushStatus() {
+  const rows = Object.keys(db.status).map(turma => ({
+    turma, status: db.status[turma] || 'aberto',
+    atualizado_em: new Date().toISOString()
+  }));
+  if (rows.length) await _upsert('turmas_status', rows);
+}
+
+async function _pushMapas() {
+  if (!db.mapas) return;
+  const rows = Object.keys(db.mapas).filter(t => db.mapas[t]).map(turma => ({
+    turma, imagem: db.mapas[turma],
+    atualizado_em: new Date().toISOString()
+  }));
+  if (rows.length) await _upsert('mapas', rows);
+}
+
+// ─── CARREGAR DO SUPABASE (tabelas estruturadas) ──────────────────────────────
 async function carregarDoSupabase() {
   setSave('saving');
   document.getElementById('sync-status').textContent = '⏳ Sincronizando...';
   try {
-    const res = await fetch(SB_URL + '/rest/v1/diario?id=eq.' + DOC_ID + '&select=dados', {
-      headers: SB_HEADERS
-    });
-    if (!res.ok) {
-      const txt = await res.text();
-      if (txt.includes('does not exist') || txt.includes('relation') || res.status === 404) {
-        mostrarAvisoSQL();
-      }
-      document.getElementById('sync-status').textContent = '⚠️ Usando dados locais';
-      setSave('error');
-      return false;
+    const [rAlunos, rAtiv, rNotas, rAnot, rStatus, rMapas] = await Promise.all([
+      sbFetch('/rest/v1/alunos?select=*&order=turma,posicao').then(r => r.ok ? r.json() : []),
+      sbFetch('/rest/v1/atividades?select=*&order=turma,trimestre,posicao').then(r => r.ok ? r.json() : []),
+      sbFetch('/rest/v1/notas?select=*').then(r => r.ok ? r.json() : []),
+      sbFetch('/rest/v1/anotacoes?select=*').then(r => r.ok ? r.json() : []),
+      sbFetch('/rest/v1/turmas_status?select=*').then(r => r.ok ? r.json() : []),
+      sbFetch('/rest/v1/mapas?select=*').then(r => r.ok ? r.json() : [])
+    ]);
+
+    // Se todas as tabelas retornaram erro (ex: não existem), mostra aviso SQL
+    const todosVazios = [rAlunos, rAtiv, rNotas, rAnot, rStatus, rMapas].every(r => !Array.isArray(r) || r.length === 0);
+
+    // Reconstrói db a partir das tabelas
+    const novoDb = { turmas: {}, notas: {}, status: {}, atividades: {}, mapas: {}, anotacoes: {} };
+
+    // Turmas e alunos
+    if (Array.isArray(rAlunos)) {
+      rAlunos.forEach(row => {
+        if (!novoDb.turmas[row.turma]) novoDb.turmas[row.turma] = [];
+        novoDb.turmas[row.turma].push(row.nome);
+      });
     }
-    const rows = await res.json();
-    if (rows && rows.length > 0 && rows[0].dados) {
-      const remoto = rows[0].dados;
-      // Mescla: remoto tem prioridade
-      db = remoto;
+
+    // Atividades
+    if (Array.isArray(rAtiv)) {
+      rAtiv.forEach(row => {
+        if (!novoDb.atividades[row.turma]) novoDb.atividades[row.turma] = {};
+        if (!novoDb.atividades[row.turma]['t'+row.trimestre]) {
+          novoDb.atividades[row.turma]['t'+row.trimestre] = Array.from({length: N_ATIV}, () => ({nome:'', valor:''}));
+        }
+        const idx = row.posicao - 1;
+        if (idx >= 0 && idx < N_ATIV) {
+          novoDb.atividades[row.turma]['t'+row.trimestre][idx] = {
+            nome: row.nome || '',
+            valor: row.valor !== null ? String(row.valor) : ''
+          };
+        }
+      });
+    }
+
+    // Notas
+    if (Array.isArray(rNotas)) {
+      rNotas.forEach(row => {
+        if (!novoDb.notas[row.turma]) novoDb.notas[row.turma] = {};
+        // Recupera nome do aluno pelo aluno_id
+        const aluno = Array.isArray(rAlunos) ? rAlunos.find(a => alunoId(a.turma, a.nome) === row.aluno_id) : null;
+        const nome = aluno ? aluno.nome : row.aluno_id;
+        if (!novoDb.notas[row.turma][nome]) novoDb.notas[row.turma][nome] = { obs: '' };
+        const key = 't'+row.trimestre+'_a'+row.atividade;
+        novoDb.notas[row.turma][nome][key] = row.nota !== null ? String(row.nota) : '';
+        if (row.obs) novoDb.notas[row.turma][nome].obs = row.obs;
+      });
+    }
+
+    // Anotações
+    if (Array.isArray(rAnot)) {
+      rAnot.forEach(row => {
+        const aluno = Array.isArray(rAlunos) ? rAlunos.find(a => alunoId(a.turma, a.nome) === row.aluno_id) : null;
+        const nome = aluno ? aluno.nome : row.aluno_id;
+        if (!novoDb.anotacoes[nome]) novoDb.anotacoes[nome] = {};
+        novoDb.anotacoes[nome]['t'+row.trimestre] = {
+          participacao:  row.participacao  || '',
+          comportamento: row.comportamento || '',
+          aprendizagem:  row.aprendizagem  || '',
+          dificuldades:  row.dificuldades  || '',
+          destaques:     row.destaques     || '',
+          observacoes:   row.observacoes   || ''
+        };
+      });
+    }
+
+    // Status
+    if (Array.isArray(rStatus)) {
+      rStatus.forEach(row => { novoDb.status[row.turma] = row.status; });
+    }
+
+    // Mapas
+    if (Array.isArray(rMapas)) {
+      rMapas.forEach(row => { novoDb.mapas[row.turma] = row.imagem; });
+    }
+
+    // Só substitui db se veio algum dado; senão mantém local e verifica migração
+    const temDados = Object.values(novoDb.turmas).some(t => t.length > 0) || rStatus.length > 0;
+    if (temDados) {
+      db = novoDb;
       if (!db.atividades) db.atividades = {};
       if (!db.mapas)      db.mapas = {};
       if (!db.anotacoes)  db.anotacoes = {};
       localStorage.setItem(STORAGE, JSON.stringify(db));
       document.getElementById('sync-status').textContent = '☁️ Sincronizado';
       setSave('ok');
-      return true;
     } else {
-      // Nenhum dado remoto ainda — faz primeiro push
-      document.getElementById('sync-status').textContent = '☁️ Primeiro acesso';
-      await _pushSupabase();
-      return true;
+      // Verifica se há dados na tabela antiga (diario) para oferecer migração
+      await verificarDadosAntigos();
+      document.getElementById('sync-status').textContent = '☁️ Pronto';
+      setSave('ok');
     }
+    return true;
   } catch(e) {
     document.getElementById('sync-status').textContent = '⚠️ Offline — dados locais';
     setSave('error');
     console.warn('Supabase load error:', e);
     return false;
+  }
+}
+
+// ─── VERIFICAR E MIGRAR DADOS ANTIGOS (tabela diario) ─────────────────────────
+async function verificarDadosAntigos() {
+  try {
+    const res = await sbFetch('/rest/v1/diario?id=eq.' + DOC_ID + '&select=dados');
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (rows && rows.length > 0 && rows[0].dados) {
+      const antigo = rows[0].dados;
+      const temAlunos = Object.values(antigo.turmas || {}).some(t => t.length > 0);
+      if (temAlunos) {
+        document.getElementById('aviso-migracao').style.display = 'block';
+      }
+    }
+  } catch(e) { /* tabela diario pode não existir, ignorar */ }
+}
+
+async function migrarDadosAntigos() {
+  const btn = document.querySelector('#aviso-migracao button');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Migrando...'; }
+  try {
+    const res = await sbFetch('/rest/v1/diario?id=eq.' + DOC_ID + '&select=dados');
+    if (!res.ok) throw new Error('Não foi possível ler tabela diario');
+    const rows = await res.json();
+    if (!rows || !rows.length || !rows[0].dados) throw new Error('Sem dados antigos');
+    db = rows[0].dados;
+    if (!db.atividades) db.atividades = {};
+    if (!db.mapas)      db.mapas = {};
+    if (!db.anotacoes)  db.anotacoes = {};
+    localStorage.setItem(STORAGE, JSON.stringify(db));
+    await _pushSupabase();
+    document.getElementById('aviso-migracao').style.display = 'none';
+    toast('✅ Migração concluída! Dados nas novas tabelas.');
+    inicializarTurmasFixas();
+    sincronizarNotas();
+    atualizarSelects();
+    renderizarTurmas();
+  } catch(e) {
+    toast('❌ Erro na migração: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Migrar dados agora'; }
   }
 }
 
@@ -776,10 +1007,13 @@ function processarInclusao() {
 function removerAluno(t, i) {
   if (db.status[t] === 'fechado') return toast('Turma travada! Destrave antes de editar.');
   const aluno = db.turmas[t][i];
-  abrirModal('👤', 'Remover aluno?', '<strong>' + aluno + '</strong> será removido da turma ' + t + ' e suas notas apagadas.', () => {
+  abrirModal('👤', 'Remover aluno?', '<strong>' + aluno + '</strong> será removido da turma ' + t + ' e suas notas apagadas.', async () => {
     db.turmas[t].splice(i, 1);
     if (db.notas[t]) delete db.notas[t][aluno];
+    if (db.anotacoes) delete db.anotacoes[aluno];
     salvar(); renderizarTurmas();
+    // Remove do Supabase em cascata (notas e anotacoes são deletadas automaticamente via ON DELETE CASCADE)
+    try { await _deleteWhere('alunos', 'id', alunoId(t, aluno)); } catch(e) {}
     toast('Aluno removido.');
   });
 }
@@ -804,9 +1038,17 @@ function moverAluno(origem, index) {
 
 function excluirTurma(t) {
   abrirModal('🗑️', 'Excluir turma ' + t + '?',
-    'Todos os <strong>' + db.turmas[t].length + ' alunos</strong> e notas serão excluídos permanentemente.', () => {
+    'Todos os <strong>' + db.turmas[t].length + ' alunos</strong> e notas serão excluídos permanentemente.', async () => {
+    const alunos = [...(db.turmas[t] || [])];
     delete db.turmas[t]; delete db.notas[t]; delete db.status[t]; delete db.atividades[t];
     salvar(); renderizarTurmas();
+    // Remove alunos do Supabase (cascata apaga notas e anotações)
+    try {
+      await Promise.all(alunos.map(nome => _deleteWhere('alunos', 'id', alunoId(t, nome))));
+      await _deleteWhere('turmas_status', 'turma', t);
+      await _deleteWhere('atividades', 'turma', t);
+      await _deleteWhere('mapas', 'turma', t);
+    } catch(e) {}
     toast('Turma ' + t + ' excluída.');
   });
 }
@@ -944,6 +1186,7 @@ function deletarMapa(t) {
   if (!confirm('Remover o mapa da turma ' + t + '?')) return;
   if (db.mapas) delete db.mapas[t];
   salvar(); renderizarMapeamento();
+  try { _deleteWhere('mapas', 'turma', t); } catch(e) {}
   toast('Mapa removido.');
 }
 
