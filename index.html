@@ -262,9 +262,6 @@ thead th.t3-col { background: #fef3c7; }
 }
 .anot-auto-nota:focus { border-color: var(--ocean-light); box-shadow: 0 0 0 2px rgba(59,130,212,.15); }
 .anot-auto-nota:disabled { background: #f8fafc; color: var(--ink-3); cursor: not-allowed; }
-.anot-auto-nota.nota-alta { color: #16a34a; border-color: #86efac; background: #f0fdf4; }
-.anot-auto-nota.nota-media { color: #d97706; border-color: #fcd34d; background: #fffbeb; }
-.anot-auto-nota.nota-baixa { color: #dc2626; border-color: #fca5a5; background: #fef2f2; }
 .anot-lista-cols { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px 5px 14px; background: var(--sky-pale); border-bottom: 1px solid var(--border); }
 .anot-lista-cols-label { font-size: 10px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; }
 .anot-lista-cols-auto { font-size: 10px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; width: 38px; text-align: center; }
@@ -1259,13 +1256,6 @@ function renderizarAnotacoes() {
       return d && Object.values(d).some(v => v && v.trim());
     });
     const autoVal = (db.autoavaliacao[a] && db.autoavaliacao[a]['t'+anotTriAtivo]) || '';
-    const notaNum = parseFloat(autoVal);
-    let notaClass = '';
-    if (autoVal !== '') {
-      if (notaNum >= 7) notaClass = 'nota-alta';
-      else if (notaNum >= 5) notaClass = 'nota-media';
-      else notaClass = 'nota-baixa';
-    }
     return '<div class="anot-aluno-item' + (a === anotAlunoAtivo ? ' ativo' : '') + '">' +
       '<div style="flex:1;min-width:0;cursor:pointer" onclick="abrirAnotacaoAluno(\'' + esc(a) + '\')">' +
         '<span class="anot-aluno-idx">' + String(i+1).padStart(2,'0') + '</span> ' +
@@ -1274,12 +1264,11 @@ function renderizarAnotacoes() {
       '</div>' +
       '<div class="anot-auto-col" onclick="event.stopPropagation()">' +
         '<input type="number" min="0" max="10" step="0.1" ' +
-          'class="anot-auto-nota ' + notaClass + '" ' +
+          'class="anot-auto-nota" ' +
           'value="' + esc(autoVal) + '" ' +
           'placeholder="—" ' +
           'title="Autoavaliação ' + (anotTriAtivo) + 'º Trimestre" ' +
-          'onchange="salvarAutoavaliacao(\'' + esc(a) + '\',' + anotTriAtivo + ',this.value)" ' +
-          'oninput="atualizarCorNota(this)">' +
+          'onchange="salvarAutoavaliacao(\'' + esc(a) + '\',' + anotTriAtivo + ',this.value)">' +
       '</div>' +
       '</div>';
   }).join('');
@@ -1399,16 +1388,6 @@ function salvarAutoavaliacao(a, tr, val) {
   renderizarListaAnotacoes();
 }
 
-function atualizarCorNota(input) {
-  const v = parseFloat(input.value);
-  input.classList.remove('nota-alta','nota-media','nota-baixa');
-  if (input.value !== '') {
-    if (v >= 7) input.classList.add('nota-alta');
-    else if (v >= 5) input.classList.add('nota-media');
-    else input.classList.add('nota-baixa');
-  }
-}
-
 function salvarAnotacao(a, campo, val) {
   if (!db.anotacoes) db.anotacoes = {};
   if (!db.anotacoes[a]) db.anotacoes[a] = {};
@@ -1431,13 +1410,6 @@ function renderizarListaAnotacoes() {
     if (input) {
       const autoVal = (db.autoavaliacao && db.autoavaliacao[a] && db.autoavaliacao[a]['t'+anotTriAtivo]) || '';
       input.value = autoVal;
-      const v = parseFloat(autoVal);
-      input.classList.remove('nota-alta','nota-media','nota-baixa');
-      if (autoVal !== '') {
-        if (v >= 7) input.classList.add('nota-alta');
-        else if (v >= 5) input.classList.add('nota-media');
-        else input.classList.add('nota-baixa');
-      }
     }
   });
 }
@@ -1469,9 +1441,11 @@ async function gerarRelatorio(a) {
   TRIMESTRES.forEach(tr => {
     const d = db.anotacoes[a]['t'+tr] || {};
     const temConteudo = Object.values(d).some(v => v && v.trim());
-    if (!temConteudo) return;
+    const autoVal = (db.autoavaliacao && db.autoavaliacao[a] && db.autoavaliacao[a]['t'+tr]) || '';
+    if (!temConteudo && autoVal === '') return;
     temAlgumDado = true;
     dadosBrutos += '\n[' + triLabels[tr] + ']\n';
+    if (autoVal !== '') dadosBrutos += 'Autoavaliação do aluno: ' + autoVal + '/10\n';
     Object.entries(campoLabels).forEach(([k, l]) => {
       if (d[k] && d[k].trim()) dadosBrutos += l + ': ' + d[k].trim() + '\n';
     });
@@ -1609,11 +1583,14 @@ function abrirModalExportExcel() {
 
   const alunosCheckboxes = alunos.map((a, i) => {
     const temAnot = comAnot.includes(a);
+    const autoTris = TRIMESTRES.filter(tr => db.autoavaliacao && db.autoavaliacao[a] && db.autoavaliacao[a]['t'+tr] !== undefined && db.autoavaliacao[a]['t'+tr] !== '');
+    const autoLabel = autoTris.length ? '<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;border-radius:10px;padding:1px 7px">📊 ' + autoTris.map(t=>t+'ºT').join(' ') + '</span>' : '';
     return `<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;${temAnot ? '' : 'opacity:.45'}">
       <input type="checkbox" class="chk-aluno-excel" value="${a.replace(/"/g,'&quot;')}" ${temAnot ? 'checked' : 'disabled'} style="width:14px;height:14px;cursor:pointer">
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:#64748b;width:22px">${String(i+1).padStart(2,'0')}</span>
       <span style="flex:1">${a}</span>
-      ${temAnot ? '<span style="font-size:10px;background:#dcfce7;color:#166534;border-radius:10px;padding:1px 7px">✓ com dados</span>' : '<span style="font-size:10px;color:#94a3b8">sem dados</span>'}
+      ${temAnot ? '<span style="font-size:10px;background:#dcfce7;color:#166534;border-radius:10px;padding:1px 7px">✓ anot.</span>' : '<span style="font-size:10px;color:#94a3b8">sem dados</span>'}
+      ${autoLabel}
     </label>`;
   }).join('');
 
@@ -1682,11 +1659,14 @@ function executarExportExcel() {
   };
   const campos = Object.keys(campoLabels);
 
-  // Monta cabeçalho: 1 coluna por trimestre
+  // Monta cabeçalho: 1 coluna de anotações + 1 de autoavaliação por trimestre
   const cabecalho = ['#', 'Aluno(a)'];
-  trisSel.forEach(tr => cabecalho.push(triLabels[tr]));
+  trisSel.forEach(tr => {
+    cabecalho.push(triLabels[tr]);
+    cabecalho.push('Autoaval. ' + tr + 'º Tri');
+  });
 
-  // Monta linhas: concatena todos os campos preenchidos separados por vírgula
+  // Monta linhas
   const linhas = alunosSel.map((a, i) => {
     const row = [i + 1, a];
     trisSel.forEach(tr => {
@@ -1695,6 +1675,8 @@ function executarExportExcel() {
         .filter(c => d[c] && d[c].trim())
         .map(c => d[c].trim());
       row.push(partes.join(', '));
+      const auto = (db.autoavaliacao && db.autoavaliacao[a] && db.autoavaliacao[a]['t'+tr]) || '';
+      row.push(auto !== '' ? parseFloat(auto) : '');
     });
     return row;
   });
@@ -1717,7 +1699,7 @@ function _gerarXLSX(cabecalho, linhas) {
 
   // Larguras das colunas
   ws['!cols'] = cabecalho.map((h, i) => ({
-    wch: i === 0 ? 4 : i === 1 ? 28 : 40
+    wch: i === 0 ? 4 : i === 1 ? 28 : h.startsWith('Autoaval') ? 12 : 40
   }));
 
   // Estilo do cabeçalho (negrito via SheetJS community — célula a célula)
@@ -1772,21 +1754,32 @@ function executarExportPDF() {
   const cabThs = '<th style="width:28px;background:#1a3a5c;color:white;padding:8px 6px;font-size:11px">#</th>' +
     '<th style="background:#1a3a5c;color:white;padding:8px 10px;font-size:11px;text-align:left;min-width:130px">Aluno(a)</th>' +
     trisSel.map(tr =>
-      '<th style="background:' + triColors[tr] + ';color:white;padding:8px 10px;font-size:11px;text-align:left">' + triLabels[tr] + '</th>'
+      '<th style="background:' + triColors[tr] + ';color:white;padding:8px 10px;font-size:11px;text-align:left">' + triLabels[tr] + '</th>' +
+      '<th style="background:' + triColors[tr] + ';color:white;padding:8px 6px;font-size:11px;text-align:center;min-width:60px;opacity:.9">Autoaval.</th>'
     ).join('');
 
   const linhasHtml = alunosSel.map(function(a, i) {
     const tds = trisSel.map(function(tr) {
       const d = (db.anotacoes && db.anotacoes[a] && db.anotacoes[a]['t'+tr]) || {};
       const partes = campos.filter(function(c) { return d[c] && d[c].trim(); });
-      if (!partes.length) return '<td style="padding:8px 10px;font-size:11px;color:#94a3b8;border:1px solid #e2e8f0">—</td>';
-      const itens = partes.map(function(c) {
-        return '<div style="margin-bottom:5px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;color:' + triColors[tr] + ';display:block;margin-bottom:1px">' + campoLabels[c] + '</span>' + d[c].trim().replace(/</g,'&lt;') + '</div>';
-      }).join('');
-      return '<td style="padding:8px 10px;font-size:11px;vertical-align:top;border:1px solid #e2e8f0;background:' + triBg[tr] + '">' + itens + '</td>';
+      const anotCell = partes.length
+        ? '<td style="padding:8px 10px;font-size:11px;vertical-align:top;border:1px solid #e2e8f0;background:' + triBg[tr] + '">' +
+            partes.map(function(c) {
+              return '<div style="margin-bottom:5px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;color:' + triColors[tr] + ';display:block;margin-bottom:1px">' + campoLabels[c] + '</span>' + d[c].trim().replace(/</g,'&lt;') + '</div>';
+            }).join('') + '</td>'
+        : '<td style="padding:8px 10px;font-size:11px;color:#94a3b8;border:1px solid #e2e8f0">—</td>';
+
+      const autoVal = (db.autoavaliacao && db.autoavaliacao[a] && db.autoavaliacao[a]['t'+tr]) || '';
+      const autoCell = '<td style="padding:8px 6px;text-align:center;font-size:13px;font-weight:700;color:var(--ink);border:1px solid #e2e8f0;vertical-align:middle">' +
+        (autoVal !== '' ? autoVal : '—') + '</td>';
+
+      return anotCell + autoCell;
     }).join('');
     const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
-    return '<tr style="background:' + bg + '"><td style="text-align:center;font-size:10px;color:#94a3b8;font-family:monospace;border:1px solid #e2e8f0;padding:8px 4px">' + String(i+1).padStart(2,'0') + '</td><td style="font-weight:600;font-size:12px;padding:8px 10px;border:1px solid #e2e8f0;white-space:nowrap">' + a + '</td>' + tds + '</tr>';
+    return '<tr style="background:' + bg + '">' +
+      '<td style="text-align:center;font-size:10px;color:#94a3b8;font-family:monospace;border:1px solid #e2e8f0;padding:8px 4px">' + String(i+1).padStart(2,'0') + '</td>' +
+      '<td style="font-weight:600;font-size:12px;padding:8px 10px;border:1px solid #e2e8f0;white-space:nowrap">' + a + '</td>' +
+      tds + '</tr>';
   }).join('');
 
   const dataHoje = new Date().toLocaleDateString('pt-BR');
