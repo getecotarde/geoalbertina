@@ -379,14 +379,46 @@ thead th.t3-col { background: #fef3c7; }
     <div class="login-globe">🌎</div>
     <div class="login-title">Diário de Geografia</div>
     <div class="login-sub">E.M. Albertina Alves do Nascimento · Prof. Everton Correa · 2026</div>
-    <label class="login-label">Código de acesso</label>
-    <input type="password" class="login-input" id="login-input"
-      placeholder="••••••••"
-      maxlength="20"
-      onkeydown="if(event.key==='Enter') tentarLogin()"
-      autocomplete="off">
-    <div class="login-erro-msg" id="login-erro"></div>
-    <button class="login-btn" onclick="tentarLogin()">🔓 Entrar</button>
+
+    <!-- Estado: verificando -->
+    <div id="login-checking" style="color:rgba(255,255,255,.5);font-size:13px;margin:24px 0">
+      ⏳ Verificando configuração...
+    </div>
+
+    <!-- Estado: login normal -->
+    <div id="login-normal" style="display:none;width:100%">
+      <label class="login-label">Código de acesso</label>
+      <input type="password" class="login-input" id="login-input"
+        placeholder="••••••••"
+        maxlength="40"
+        onkeydown="if(event.key==='Enter') tentarLogin()"
+        autocomplete="off">
+      <div class="login-erro-msg" id="login-erro"></div>
+      <button class="login-btn" id="login-btn" onclick="tentarLogin()">🔓 Entrar</button>
+    </div>
+
+    <!-- Estado: primeiro acesso — definir senha -->
+    <div id="login-primeiro-acesso" style="display:none;width:100%">
+      <div style="background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.3);border-radius:10px;padding:12px 14px;margin-bottom:20px;font-size:12px;color:rgba(255,255,255,.75);line-height:1.6;text-align:left">
+        🎉 <strong style="color:white">Primeiro acesso detectado!</strong><br>
+        Defina agora o código secreto que será usado para acessar este diário. Ele ficará salvo com segurança no banco de dados.
+      </div>
+      <label class="login-label">Criar código de acesso</label>
+      <input type="password" class="login-input" id="login-nova-senha"
+        placeholder="Mínimo 6 caracteres"
+        maxlength="40"
+        onkeydown="if(event.key==='Enter') document.getElementById('login-confirmar-senha').focus()"
+        autocomplete="new-password">
+      <label class="login-label" style="margin-top:10px">Confirmar código</label>
+      <input type="password" class="login-input" id="login-confirmar-senha"
+        placeholder="Repita o código"
+        maxlength="40"
+        onkeydown="if(event.key==='Enter') definirSenha()"
+        autocomplete="new-password">
+      <div class="login-erro-msg" id="login-erro-def"></div>
+      <button class="login-btn" id="login-btn-def" onclick="definirSenha()">✅ Salvar e Entrar</button>
+    </div>
+
     <div class="login-footer">Acesso restrito ao professor responsável</div>
   </div>
 </div>
@@ -420,7 +452,15 @@ thead th.t3-col { background: #fef3c7; }
   atualizado_em timestamptz DEFAULT now()
 );
 ALTER TABLE diario ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "acesso_total" ON diario FOR ALL USING (true) WITH CHECK (true);</code>
+CREATE POLICY "acesso_total" ON diario FOR ALL USING (true) WITH CHECK (true);
+
+CREATE TABLE IF NOT EXISTS auth_config (
+  id text PRIMARY KEY,
+  senha_hash text NOT NULL,
+  criado_em timestamptz DEFAULT now()
+);
+ALTER TABLE auth_config ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "acesso_total" ON auth_config FOR ALL USING (true) WITH CHECK (true);</code>
   <br>
   <button onclick="document.getElementById('aviso-sql').style.display='none';_pushSupabase()" style="background:#1d4ed8;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px">✓ Já executei, tentar novamente</button>
 </div>
@@ -1662,13 +1702,91 @@ function fecharModal() {
 }
 
 // ─── LOGIN / LOGOUT ──────────────────────────────────────────────────────────
-const SENHA = 'galodoio';
 const SESSION_KEY = 'geo_session_2026';
+const AUTH_ID     = 'everton_2026_auth';
 
-function tentarLogin() {
+// Hash simples via SubtleCrypto (SHA-256)
+async function hashSenha(senha) {
+  const enc  = new TextEncoder();
+  const buf  = await crypto.subtle.digest('SHA-256', enc.encode(senha + 'geo_salt_2026'));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Busca o hash salvo no Supabase
+async function buscarHashSalvo() {
+  try {
+    const res = await fetch(SB_URL + '/rest/v1/auth_config?id=eq.' + AUTH_ID + '&select=senha_hash', {
+      headers: SB_HEADERS
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return (rows && rows.length > 0) ? rows[0].senha_hash : null;
+  } catch(e) {
+    console.warn('Erro ao buscar auth:', e);
+    return null;
+  }
+}
+
+// Salva hash da senha no Supabase (só no primeiro acesso)
+async function salvarHashSenha(hash) {
+  const payload = { id: AUTH_ID, senha_hash: hash };
+  const res = await fetch(SB_URL + '/rest/v1/auth_config', {
+    method: 'POST',
+    headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(payload)
+  });
+  return res.ok || res.status === 201 || res.status === 204;
+}
+
+// Inicializa a tela de login: verifica se há senha cadastrada
+async function iniciarLogin() {
+  document.getElementById('login-checking').style.display = 'block';
+  document.getElementById('login-normal').style.display = 'none';
+  document.getElementById('login-primeiro-acesso').style.display = 'none';
+
+  const hashExistente = await buscarHashSalvo();
+  document.getElementById('login-checking').style.display = 'none';
+
+  if (hashExistente) {
+    // Já existe senha → tela normal
+    document.getElementById('login-normal').style.display = 'block';
+    setTimeout(() => document.getElementById('login-input').focus(), 100);
+  } else {
+    // Sem senha cadastrada → primeiro acesso
+    document.getElementById('login-primeiro-acesso').style.display = 'block';
+    setTimeout(() => document.getElementById('login-nova-senha').focus(), 100);
+  }
+}
+
+// Tentativa de login normal
+async function tentarLogin() {
   const input = document.getElementById('login-input');
-  const erro = document.getElementById('login-erro');
-  if (input.value === SENHA) {
+  const erro  = document.getElementById('login-erro');
+  const btn   = document.getElementById('login-btn');
+
+  if (!input.value.trim()) {
+    erro.textContent = '❌ Digite o código de acesso.';
+    input.focus();
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Verificando...';
+  erro.textContent = '';
+
+  const hash       = await hashSenha(input.value);
+  const hashSalvo  = await buscarHashSalvo();
+
+  btn.disabled = false;
+  btn.textContent = '🔓 Entrar';
+
+  if (!hashSalvo) {
+    // Supabase inacessível ou tabela não existe
+    erro.textContent = '⚠️ Não foi possível verificar o código. Verifique a conexão.';
+    return;
+  }
+
+  if (hash === hashSalvo) {
     sessionStorage.setItem(SESSION_KEY, '1');
     const screen = document.getElementById('login-screen');
     screen.style.animation = 'fadeIn .25s ease reverse forwards';
@@ -1685,6 +1803,42 @@ function tentarLogin() {
   }
 }
 
+// Definir senha no primeiro acesso
+async function definirSenha() {
+  const novaSenha  = document.getElementById('login-nova-senha').value;
+  const confirmar  = document.getElementById('login-confirmar-senha').value;
+  const erro       = document.getElementById('login-erro-def');
+  const btn        = document.getElementById('login-btn-def');
+
+  if (novaSenha.length < 6) {
+    erro.textContent = '❌ O código deve ter pelo menos 6 caracteres.';
+    return;
+  }
+  if (novaSenha !== confirmar) {
+    erro.textContent = '❌ Os códigos não coincidem.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Salvando...';
+  erro.textContent = '';
+
+  const hash = await hashSenha(novaSenha);
+  const ok   = await salvarHashSenha(hash);
+
+  btn.disabled = false;
+  btn.textContent = '✅ Salvar e Entrar';
+
+  if (ok) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    const screen = document.getElementById('login-screen');
+    screen.style.animation = 'fadeIn .25s ease reverse forwards';
+    setTimeout(() => { screen.style.display = 'none'; iniciar(); }, 250);
+  } else {
+    erro.textContent = '⚠️ Erro ao salvar o código. Verifique se as tabelas do Supabase foram criadas.';
+  }
+}
+
 function sair() {
   if (!confirm('Deseja realmente sair? A sessão será encerrada.')) return;
   sessionStorage.removeItem(SESSION_KEY);
@@ -1693,7 +1847,7 @@ function sair() {
   screen.style.animation = 'fadeIn .25s ease forwards';
   document.getElementById('login-input').value = '';
   document.getElementById('login-erro').textContent = '';
-  document.getElementById('login-input').focus();
+  iniciarLogin();
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
@@ -1706,12 +1860,12 @@ async function iniciar() {
   selecionarTrimestre(1);
 }
 
-// Verifica sessão ativa
+// Verifica sessão ativa ou inicia tela de login
 if (sessionStorage.getItem(SESSION_KEY) === '1') {
   document.getElementById('login-screen').style.display = 'none';
   iniciar();
 } else {
-  setTimeout(() => document.getElementById('login-input').focus(), 100);
+  iniciarLogin();
 }
 </script>
 </body>
