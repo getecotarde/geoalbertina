@@ -441,6 +441,46 @@ thead th.t3-col { background: #fef3c7; }
 }
 .drive-auth-close:hover { background: var(--sky-pale); }
 
+/* Drop zone */
+.drive-auth-dropzone {
+  display: none; /* removido */
+}
+/* OR separator */
+.drive-auth-or { display: none; }
+
+/* How-to toggle */
+.drive-auth-howto-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; font-weight: 600; color: var(--ocean-mid);
+  cursor: pointer; padding: 8px 0; margin-bottom: 2px;
+  border-bottom: 1px solid var(--border); transition: color .15s;
+  user-select: none;
+}
+.drive-auth-howto-toggle:hover { color: var(--ocean); }
+.drive-auth-chevron { font-size: 9px; transition: transform .2s; }
+.drive-auth-howto-toggle.open .drive-auth-chevron { transform: rotate(180deg); }
+.drive-auth-howto {
+  background: var(--sky-pale); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; margin: 8px 0 12px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.drive-auth-step {
+  display: flex; gap: 10px; align-items: flex-start; font-size: 12px;
+  color: var(--ink-2); line-height: 1.6;
+}
+.drive-auth-step-num {
+  min-width: 22px; height: 22px; border-radius: 50%;
+  background: var(--ocean-mid); color: white;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.drive-auth-step a { color: var(--ocean-mid); font-weight: 600; }
+.drive-auth-step code {
+  background: #e2e8f0; border-radius: 4px;
+  padding: 1px 5px; font-family: 'DM Mono', monospace; font-size: 11px;
+}
+
 @media print {
   .app-header, .app-nav, .no-print, .toolbar .btn-group, .filter-bar { display: none !important; }
   body { background: white; padding: 0; }
@@ -719,22 +759,38 @@ CREATE POLICY "acesso_total" ON diario FOR ALL USING (true) WITH CHECK (true);</
     </div>
 
     <div class="drive-auth-title">Conectar ao Google Drive</div>
-    <div class="drive-auth-sub">Insira suas credenciais para acessar os arquivos do Drive diretamente nesta plataforma.</div>
+    <div class="drive-auth-sub">Cole seu token de acesso abaixo para sincronizar seus arquivos.</div>
 
+    <!-- Campo token -->
     <div class="drive-auth-field">
-      <label>📧 E-mail da conta Google</label>
-      <input type="email" id="drive-auth-email" placeholder="professor@gmail.com"
-        onkeydown="if(event.key==='Enter') document.getElementById('drive-auth-apikey').focus()">
-      <div class="drive-auth-hint">Conta vinculada ao Google Drive que deseja acessar.</div>
+      <label>🔑 Token de acesso</label>
+      <input type="password" id="drive-auth-apikey" placeholder="ya29.••••••••••••••••••••"
+        onkeydown="if(event.key==='Enter') driveAuthConfirmar()">
     </div>
 
-    <div class="drive-auth-field">
-      <label>🔑 Chave de API / Token de acesso</label>
-      <input type="password" id="drive-auth-apikey" placeholder="••••••••••••••••••••"
-        onkeydown="if(event.key==='Enter') driveAuthConfirmar()">
-      <div class="drive-auth-hint">
-        Token OAuth ou chave de serviço do Google Cloud.<br>
-        <a href="https://console.cloud.google.com/apis/credentials" target="_blank">↗ Gerar no Google Cloud Console</a>
+    <!-- Como gerar (colapsável) -->
+    <div class="drive-auth-howto-toggle" onclick="driveAuthToggleHowto(this)">
+      <span>❓ Como gerar meu token?</span>
+      <span class="drive-auth-chevron">▼</span>
+    </div>
+    <div class="drive-auth-howto" id="drive-auth-howto" style="display:none">
+      <div class="drive-auth-step">
+        <div class="drive-auth-step-num">1</div>
+        <div>Acesse o <a href="https://developers.google.com/oauthplayground" target="_blank"><strong>OAuth 2.0 Playground</strong> ↗</a></div>
+      </div>
+      <div class="drive-auth-step">
+        <div class="drive-auth-step-num">2</div>
+        <div>Em <em>"Select &amp; authorize APIs"</em>, expanda <strong>Drive API v3</strong> e marque<br>
+          <code>…/auth/drive.readonly</code><br>
+          Clique em <strong>"Authorize APIs"</strong> e faça login com sua conta Google.</div>
+      </div>
+      <div class="drive-auth-step">
+        <div class="drive-auth-step-num">3</div>
+        <div>Clique em <strong>"Exchange authorization code for tokens"</strong> e copie o valor de <strong>access_token</strong> (começa com <code>ya29.</code>).</div>
+      </div>
+      <div class="drive-auth-step">
+        <div class="drive-auth-step-num">4</div>
+        <div>Cole o token no campo acima e clique em <strong>Conectar</strong>. ⏱️ Válido por ~1 hora.</div>
       </div>
     </div>
 
@@ -1937,72 +1993,62 @@ function driveShowSkeletons() {
 }
 
 // ─── DRIVE AUTH MODAL ────────────────────────────────────────────────────────
-let driveAuthEmail = '';
-let driveAuthToken = '';
+let driveAuthEmail  = '';
+let driveAuthToken  = '';
+let driveServiceKey = null;
 
 function driveConnect() {
-  // Se já tem credenciais salvas, reconecta direto
   const saved = sessionStorage.getItem('drive_auth');
   if (saved) {
     try {
-      const { email, token } = JSON.parse(saved);
-      driveAuthEmail = email;
-      driveAuthToken = token;
+      const s = JSON.parse(saved);
+      driveAuthToken  = s.token  || '';
+      driveAuthEmail  = s.email  || '';
+      driveServiceKey = s.svcKey || null;
       driveAuthIniciar();
       return;
     } catch(e) {}
   }
-  // Abre modal de autenticação
+  _driveAuthAbrirModal();
+}
+
+function _driveAuthAbrirModal() {
   document.getElementById('drive-auth-overlay').classList.remove('hidden');
   document.getElementById('drive-auth-erro').textContent = '';
-  document.getElementById('drive-auth-email').value = '';
   document.getElementById('drive-auth-apikey').value = '';
-  setTimeout(() => document.getElementById('drive-auth-email').focus(), 80);
+  setTimeout(() => document.getElementById('drive-auth-apikey').focus(), 80);
 }
 
 function driveAuthFechar() {
   document.getElementById('drive-auth-overlay').classList.add('hidden');
 }
 
+function driveAuthToggleHowto(el) {
+  el.classList.toggle('open');
+  const box = document.getElementById('drive-auth-howto');
+  box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+}
+
 function driveAuthConfirmar() {
-  const email = document.getElementById('drive-auth-email').value.trim();
-  const token = document.getElementById('drive-auth-apikey').value.trim();
+  const token  = document.getElementById('drive-auth-apikey').value.trim();
   const erroEl = document.getElementById('drive-auth-erro');
-
-  // Validações básicas
   erroEl.textContent = '';
-  document.getElementById('drive-auth-email').classList.remove('erro');
-  document.getElementById('drive-auth-apikey').classList.remove('erro');
 
-  if (!email) {
-    document.getElementById('drive-auth-email').classList.add('erro');
-    erroEl.textContent = '⚠️ Informe o e-mail da conta Google.';
-    document.getElementById('drive-auth-email').focus();
-    return;
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    document.getElementById('drive-auth-email').classList.add('erro');
-    erroEl.textContent = '⚠️ E-mail inválido.';
-    document.getElementById('drive-auth-email').focus();
-    return;
-  }
   if (!token) {
-    document.getElementById('drive-auth-apikey').classList.add('erro');
-    erroEl.textContent = '⚠️ Informe a chave de API / token de acesso.';
+    erroEl.textContent = '⚠️ Cole o token de acesso antes de conectar.';
     document.getElementById('drive-auth-apikey').focus();
     return;
   }
   if (token.length < 10) {
-    document.getElementById('drive-auth-apikey').classList.add('erro');
-    erroEl.textContent = '⚠️ Token muito curto. Verifique e tente novamente.';
+    erroEl.textContent = '⚠️ Token inválido. Verifique e tente novamente.';
     document.getElementById('drive-auth-apikey').focus();
     return;
   }
 
-  // Salva na sessão e inicia conexão
-  driveAuthEmail = email;
-  driveAuthToken = token;
-  sessionStorage.setItem('drive_auth', JSON.stringify({ email, token }));
+  driveAuthToken  = token;
+  driveAuthEmail  = '';
+  driveServiceKey = null;
+  sessionStorage.setItem('drive_auth', JSON.stringify({ token, email: '', svcKey: null }));
 
   driveAuthFechar();
   driveAuthIniciar();
@@ -2030,7 +2076,14 @@ async function driveLoadFolder(folderId, folderName) {
       : "'" + folderId + "' in parents and trashed=false";
 
     const headers = { 'Content-Type': 'application/json', 'anthropic-beta': 'mcp-client-2025-04-04' };
-    if (driveAuthToken) headers['x-drive-token'] = driveAuthToken;
+
+    // Monta contexto de autenticação para o prompt
+    let authContext = '';
+    if (driveServiceKey) {
+      authContext = `Service Account credentials — client_email: ${driveServiceKey.client_email}, project_id: ${driveServiceKey.project_id}. Use these to authenticate with Google Drive MCP.`;
+    } else if (driveAuthToken) {
+      authContext = `OAuth access token: ${driveAuthToken}`;
+    }
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -2038,7 +2091,7 @@ async function driveLoadFolder(folderId, folderName) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 4000,
-        system: driveAuthEmail ? 'Authenticated Google account: ' + driveAuthEmail : undefined,
+        system: authContext || undefined,
         messages: [{
           role: 'user',
           content: 'Use the Google Drive MCP gdrive tool to list files. Query filter: ' + query + '. After listing, return ONLY a raw JSON array (no markdown, no explanation) where each object has: id, name, mimeType, modifiedTime, size, webViewLink, shared.'
@@ -2098,7 +2151,8 @@ async function driveLoadFolder(folderId, folderName) {
     document.getElementById('drive-connect-btn').disabled = false;
     document.getElementById('drive-refresh-btn').style.display = '';
     document.getElementById('drive-item-count').textContent = files.length + ' item(s)';
-    driveSetStatus('connected', 'Drive sincronizado · ' + (driveAuthEmail || ''));
+    const authType = driveServiceKey ? '🔐 Service Account' : '🔑 Token OAuth';
+    driveSetStatus('connected', authType + (driveAuthEmail ? ' · ' + driveAuthEmail : ''));
 
   } catch(e) {
     console.warn('Drive error:', e);
@@ -2106,6 +2160,9 @@ async function driveLoadFolder(folderId, folderName) {
     document.getElementById('drive-connect-btn').textContent = '↻ Tentar novamente';
     document.getElementById('drive-connect-btn').disabled = false;
     sessionStorage.removeItem('drive_auth');
+    driveServiceKey = null;
+    driveAuthEmail  = '';
+    driveAuthToken  = '';
     document.getElementById('drive-file-list').innerHTML =
       '<div class="drive-empty"><span class="drive-empty-icon">⚠️</span>Não foi possível conectar ao Google Drive.<br><small style="color:var(--ink-3)">Verifique suas credenciais e tente novamente.</small></div>';
   }
