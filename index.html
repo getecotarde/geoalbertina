@@ -1255,6 +1255,22 @@ function renderizarEditorAnotacao(a) {
     'onclick="mudarTriAnotacao(' + tr + ')">' + triLabels[tr] + '</button>'
   ).join('');
 
+  // Botão para puxar trimestre anterior (só aparece no 2º e 3º trimestre)
+  const trAnterior = anotTriAtivo - 1;
+  const dadosAnteriores = trAnterior >= 1 ? (db.anotacoes[a]['t'+trAnterior] || {}) : {};
+  const temDadosAnteriores = trAnterior >= 1 && Object.values(dadosAnteriores).some(v => v && v.trim());
+  const dadosAtuais = db.anotacoes[a]['t'+anotTriAtivo] || {};
+  const temDadosAtuais = Object.values(dadosAtuais).some(v => v && v.trim());
+
+  const btnPuxarAnterior = (anotTriAtivo > 1)
+    ? '<button class="btn btn-sm" ' +
+      'style="background:#f0f9ff;border-color:#7dd3fc;color:#0369a1;font-size:11px" ' +
+      'onclick="puxarTrimestireAnterior(\'' + esc(a) + '\',' + anotTriAtivo + ')" ' +
+      (temDadosAnteriores ? '' : 'disabled title="Sem dados no ' + trAnterior + 'º trimestre"') + '>' +
+      '⬆️ Puxar dados do ' + trAnterior + 'º trimestre' +
+      '</button>'
+    : '';
+
   const camposHtml = campos.map(c => {
     const val = (db.anotacoes[a]['t'+anotTriAtivo][c.key] || '');
     return '<div class="anot-campo">' +
@@ -1267,12 +1283,42 @@ function renderizarEditorAnotacao(a) {
   wrap.innerHTML = '<div class="anot-editor">' +
     '<div class="anot-editor-nome">' + a + '</div>' +
     '<div class="anot-editor-sub">9ºA · Relatório Descritivo · Turma de Referência</div>' +
-    '<div class="anot-tri-tabs">' + triTabs + '</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">' +
+    '<div class="anot-tri-tabs" style="margin-bottom:0">' + triTabs + '</div>' +
+    btnPuxarAnterior +
+    '</div>' +
     camposHtml +
     '<div style="display:flex;align-items:center;gap:12px;margin-top:8px">' +
     '<button class="btn btn-primary btn-sm" onclick="gerarRelatorio(\'' + esc(a) + '\')">📄 Gerar Rascunho do Relatório</button>' +
     '<span class="anot-salvo" id="anot-salvo-lbl">✓ Salvo</span>' +
     '</div></div>';
+}
+
+function puxarTrimestireAnterior(a, trAtual) {
+  const trAnterior = trAtual - 1;
+  const dadosAnteriores = (db.anotacoes[a] && db.anotacoes[a]['t'+trAnterior]) || {};
+  const temDados = Object.values(dadosAnteriores).some(v => v && v.trim());
+  if (!temDados) return toast('Sem dados no ' + trAnterior + 'º trimestre para copiar.');
+
+  const dadosAtuais = (db.anotacoes[a] && db.anotacoes[a]['t'+trAtual]) || {};
+  const jaTemDados = Object.values(dadosAtuais).some(v => v && v.trim());
+
+  const executar = () => {
+    if (!db.anotacoes[a]) db.anotacoes[a] = {};
+    db.anotacoes[a]['t'+trAtual] = Object.assign({}, dadosAnteriores);
+    salvar();
+    renderizarEditorAnotacao(a);
+    toast('✓ Dados do ' + trAnterior + 'º trimestre copiados para o ' + trAtual + 'º.');
+  };
+
+  if (jaTemDados) {
+    abrirModal('⚠️', 'Substituir anotações?',
+      'O ' + trAtual + 'º trimestre já possui anotações. Deseja <strong>substituí-las</strong> pelos dados do ' + trAnterior + 'º trimestre?',
+      executar
+    );
+  } else {
+    executar();
+  }
 }
 
 function mudarTriAnotacao(tr) {
