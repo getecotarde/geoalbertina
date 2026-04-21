@@ -2071,68 +2071,35 @@ async function driveLoadFolder(folderId, folderName) {
   document.getElementById('drive-back-btn').style.display = driveStack.length > 0 ? '' : 'none';
 
   try {
-    const query = folderId === 'root'
-      ? "'root' in parents and trashed=false"
-      : "'" + folderId + "' in parents and trashed=false";
+    const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+    const fields = encodeURIComponent('files(id,name,mimeType,modifiedTime,size,webViewLink,shared),nextPageToken');
+    const url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=100&orderBy=folder,name`;
 
-    const headers = { 'Content-Type': 'application/json', 'anthropic-beta': 'mcp-client-2025-04-04' };
-
-    // Monta contexto de autenticação para o prompt
-    let authContext = '';
-    if (driveServiceKey) {
-      authContext = `Service Account credentials — client_email: ${driveServiceKey.client_email}, project_id: ${driveServiceKey.project_id}. Use these to authenticate with Google Drive MCP.`;
-    } else if (driveAuthToken) {
-      authContext = `OAuth access token: ${driveAuthToken}`;
-    }
-
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 4000,
-        system: authContext || undefined,
-        messages: [{
-          role: 'user',
-          content: 'Use the Google Drive MCP gdrive tool to list files. Query filter: ' + query + '. After listing, return ONLY a raw JSON array (no markdown, no explanation) where each object has: id, name, mimeType, modifiedTime, size, webViewLink, shared.'
-        }],
-        mcp_servers: [{ type: 'url', url: 'https://drivemcp.googleapis.com/mcp/v1', name: 'gdrive' }]
-      })
+    const res = await fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + driveAuthToken }
     });
 
+    if (res.status === 401) {
+      // Token expirado
+      sessionStorage.removeItem('drive_auth');
+      driveAuthToken = '';
+      document.getElementById('drive-connect-btn').textContent = '↻ Tentar novamente';
+      document.getElementById('drive-connect-btn').disabled = false;
+      driveSetStatus('off', 'Token expirado — conecte novamente');
+      document.getElementById('drive-file-list').innerHTML =
+        '<div class="drive-empty"><span class="drive-empty-icon">🔒</span>Token expirado.<br><small style="color:var(--ink-3)">Clique em <strong>↻ Tentar novamente</strong> e gere um novo token no OAuth Playground.</small></div>';
+      return;
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err.error && err.error.message) || 'Erro ' + res.status);
+    }
+
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message || 'API error');
+    const files = data.files || [];
 
-    let files = [];
-
-    function tryParseFiles(str) {
-      if (!str) return null;
-      try {
-        const clean = str.replace(/```json|```/g, '').trim();
-        const parsed = JSON.parse(clean);
-        return Array.isArray(parsed) ? parsed : (parsed.files || parsed.items || null);
-      } catch(e) {
-        const match = str.match(/\[[\s\S]*\]/);
-        if (match) { try { return JSON.parse(match[0]); } catch(e2) {} }
-        return null;
-      }
-    }
-
-    const blocks = data.content || [];
-    const toolResults = blocks.filter(b => b.type === 'mcp_tool_result');
-    for (const tr of toolResults) {
-      const raw = Array.isArray(tr.content) ? (tr.content[0]?.text || '') : (tr.content || '');
-      const parsed = tryParseFiles(raw);
-      if (parsed !== null) { files = parsed; break; }
-    }
-    if (!toolResults.length || files.length === 0) {
-      const textBlocks = blocks.filter(b => b.type === 'text');
-      for (const tb of textBlocks) {
-        const parsed = tryParseFiles(tb.text);
-        if (parsed !== null) { files = parsed; break; }
-      }
-    }
-
+    // Pastas primeiro, depois por nome
     files.sort((a, b) => {
       const aF = a.mimeType === 'application/vnd.google-apps.folder';
       const bF = b.mimeType === 'application/vnd.google-apps.folder';
@@ -2141,30 +2108,39 @@ async function driveLoadFolder(folderId, folderName) {
       return (a.name || '').localeCompare(b.name || '');
     });
 
+    // Busca e-mail do usuário logado (para exibir no status)
+    if (!driveAuthEmail) {
+      fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { 'Authorization': 'Bearer ' + driveAuthToken }
+      }).then(r => r.json()).then(u => {
+        driveAuthEmail = u.email || '';
+        if (driveAuthEmail) {
+          document.getElementById('drive-header-status').textContent = 'Conectado · ' + driveAuthEmail.split('@')[0];
+          driveSetStatus('connected', '🔑 Token OAuth · ' + driveAuthEmail);
+        }
+      }).catch(() => {});
+    }
+
     driveAllFiles = files;
     driveConnected = true;
     driveRenderFiles(files);
 
-    const emailShort = driveAuthEmail ? ' · ' + driveAuthEmail.split('@')[0] : '';
-    document.getElementById('drive-header-status').textContent = 'Conectado' + emailShort;
-    document.getElementById('drive-connect-btn').textContent = '↻ Trocar conta';
+    document.getElementById('drive-header-status').textContent = 'Conectado' + (driveAuthEmail ? ' · ' + driveAuthEmail.split('@')[0] : '');
+    document.getElementById('drive-connect-btn').textContent = '↻ Trocar token';
     document.getElementById('drive-connect-btn').disabled = false;
     document.getElementById('drive-refresh-btn').style.display = '';
     document.getElementById('drive-item-count').textContent = files.length + ' item(s)';
-    const authType = driveServiceKey ? '🔐 Service Account' : '🔑 Token OAuth';
-    driveSetStatus('connected', authType + (driveAuthEmail ? ' · ' + driveAuthEmail : ''));
+    driveSetStatus('connected', '🔑 Token OAuth' + (driveAuthEmail ? ' · ' + driveAuthEmail : ''));
 
   } catch(e) {
     console.warn('Drive error:', e);
-    driveSetStatus('off', 'Erro ao carregar — tente novamente');
+    driveSetStatus('off', 'Erro: ' + e.message);
     document.getElementById('drive-connect-btn').textContent = '↻ Tentar novamente';
     document.getElementById('drive-connect-btn').disabled = false;
     sessionStorage.removeItem('drive_auth');
-    driveServiceKey = null;
-    driveAuthEmail  = '';
-    driveAuthToken  = '';
+    driveAuthToken = '';
     document.getElementById('drive-file-list').innerHTML =
-      '<div class="drive-empty"><span class="drive-empty-icon">⚠️</span>Não foi possível conectar ao Google Drive.<br><small style="color:var(--ink-3)">Verifique suas credenciais e tente novamente.</small></div>';
+      `<div class="drive-empty"><span class="drive-empty-icon">⚠️</span>Não foi possível conectar ao Google Drive.<br><small style="color:var(--ink-3)">${e.message}</small></div>`;
   }
 }
 
