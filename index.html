@@ -242,13 +242,32 @@ thead th.t3-col { background: #fef3c7; }
 @media (max-width: 768px) { .anot-grid { grid-template-columns: 1fr; } }
 .anot-lista { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
 .anot-lista-header { background: linear-gradient(90deg, var(--ocean) 0%, var(--ocean-mid) 100%); color: white; padding: 12px 16px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; }
-.anot-aluno-item { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.anot-aluno-item { padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .anot-aluno-item:last-child { border-bottom: none; }
 .anot-aluno-item:hover { background: var(--sky-pale); }
 .anot-aluno-item.ativo { background: var(--sky); border-left: 3px solid var(--ocean-mid); }
 .anot-aluno-nome { font-size: 13px; font-weight: 500; }
 .anot-aluno-idx { font-size: 10px; color: var(--ink-3); font-family: 'DM Mono', monospace; }
 .anot-badge { font-size: 10px; background: var(--ocean-mid); color: white; border-radius: 20px; padding: 1px 7px; }
+
+/* Coluna de autoavaliação */
+.anot-lista-header { display: flex; align-items: center; justify-content: space-between; }
+.anot-lista-header-auto { font-size: 10px; opacity: .75; font-weight: 400; background: rgba(255,255,255,.15); border-radius: 10px; padding: 2px 8px; white-space: nowrap; }
+.anot-auto-col { display: flex; flex-direction: column; align-items: center; gap: 1px; flex-shrink: 0; }
+.anot-auto-nota {
+  font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 700;
+  width: 38px; height: 26px; padding: 2px 4px; text-align: center;
+  border: 1px solid var(--border-2); border-radius: 6px; background: var(--white);
+  color: var(--ocean-mid); outline: none; transition: border .15s, box-shadow .15s;
+}
+.anot-auto-nota:focus { border-color: var(--ocean-light); box-shadow: 0 0 0 2px rgba(59,130,212,.15); }
+.anot-auto-nota:disabled { background: #f8fafc; color: var(--ink-3); cursor: not-allowed; }
+.anot-auto-nota.nota-alta { color: #16a34a; border-color: #86efac; background: #f0fdf4; }
+.anot-auto-nota.nota-media { color: #d97706; border-color: #fcd34d; background: #fffbeb; }
+.anot-auto-nota.nota-baixa { color: #dc2626; border-color: #fca5a5; background: #fef2f2; }
+.anot-lista-cols { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px 5px 14px; background: var(--sky-pale); border-bottom: 1px solid var(--border); }
+.anot-lista-cols-label { font-size: 10px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; }
+.anot-lista-cols-auto { font-size: 10px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; width: 38px; text-align: center; }
 .anot-editor { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; box-shadow: var(--shadow); }
 .anot-editor-nome { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 4px; }
 .anot-editor-sub { font-size: 12px; color: var(--ink-3); margin-bottom: 18px; }
@@ -565,7 +584,14 @@ thead th.t3-col { background: #fef3c7; }
     </div>
     <div class="anot-grid" id="anotGrid">
       <div class="anot-lista">
-        <div class="anot-lista-header">👥 Alunos da 9ºA</div>
+        <div class="anot-lista-header" style="background: linear-gradient(90deg, var(--ocean) 0%, var(--ocean-mid) 100%); color: white; padding: 12px 16px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px;">
+          <span>👥 Alunos da 9ºA</span>
+          <span class="anot-lista-header-auto">Autoaval.</span>
+        </div>
+        <div class="anot-lista-cols">
+          <span class="anot-lista-cols-label">Aluno(a)</span>
+          <span class="anot-lista-cols-auto" id="anot-tri-label">1º Tri</span>
+        </div>
         <div id="anotListaAlunos"></div>
       </div>
       <div id="anotEditorWrap">
@@ -604,10 +630,11 @@ const N_ATIV = 6;
 const TRIMESTRES = [1, 2, 3];
 const TURMAS_FIXAS = ['8ºA','8ºB','8ºC','9ºA','9ºB','9ºC'];
 
-let db = JSON.parse(localStorage.getItem(STORAGE)) || { turmas: {}, notas: {}, status: {}, atividades: {}, mapas: {}, anotacoes: {} };
-if (!db.atividades) db.atividades = {};
-if (!db.mapas)      db.mapas = {};
-if (!db.anotacoes)  db.anotacoes = {};
+let db = JSON.parse(localStorage.getItem(STORAGE)) || { turmas: {}, notas: {}, status: {}, atividades: {}, mapas: {}, anotacoes: {}, autoavaliacao: {} };
+if (!db.atividades)     db.atividades = {};
+if (!db.mapas)          db.mapas = {};
+if (!db.anotacoes)      db.anotacoes = {};
+if (!db.autoavaliacao)  db.autoavaliacao = {};
 
 let trimestreFiltro = 1;
 let _saveTimer = null;
@@ -742,6 +769,7 @@ async function _pushAnotacoes() {
   for (const nome in db.anotacoes) {
     TRIMESTRES.forEach(tr => {
       const d = (db.anotacoes[nome] && db.anotacoes[nome]['t'+tr]) || {};
+      const autoVal = (db.autoavaliacao && db.autoavaliacao[nome] && db.autoavaliacao[nome]['t'+tr]);
       rows.push({
         id: anotId('9ºA', nome, tr),
         aluno_id: alunoId('9ºA', nome),
@@ -752,6 +780,7 @@ async function _pushAnotacoes() {
         dificuldades:  d.dificuldades  || '',
         destaques:     d.destaques     || '',
         observacoes:   d.observacoes   || '',
+        autoavaliacao: autoVal !== undefined && autoVal !== '' ? parseFloat(autoVal) || null : null,
         atualizado_em: new Date().toISOString()
       });
     });
@@ -794,7 +823,7 @@ async function carregarDoSupabase() {
     const todosVazios = [rAlunos, rAtiv, rNotas, rAnot, rStatus, rMapas].every(r => !Array.isArray(r) || r.length === 0);
 
     // Reconstrói db a partir das tabelas
-    const novoDb = { turmas: {}, notas: {}, status: {}, atividades: {}, mapas: {}, anotacoes: {} };
+    const novoDb = { turmas: {}, notas: {}, status: {}, atividades: {}, mapas: {}, anotacoes: {}, autoavaliacao: {} };
 
     // Turmas e alunos
     if (Array.isArray(rAlunos)) {
@@ -849,6 +878,11 @@ async function carregarDoSupabase() {
           destaques:     row.destaques     || '',
           observacoes:   row.observacoes   || ''
         };
+        // Recupera autoavaliação
+        if (row.autoavaliacao !== null && row.autoavaliacao !== undefined) {
+          if (!novoDb.autoavaliacao[nome]) novoDb.autoavaliacao[nome] = {};
+          novoDb.autoavaliacao[nome]['t'+row.trimestre] = String(row.autoavaliacao);
+        }
       });
     }
 
@@ -866,9 +900,10 @@ async function carregarDoSupabase() {
     const temDados = Object.values(novoDb.turmas).some(t => t.length > 0) || rStatus.length > 0;
     if (temDados) {
       db = novoDb;
-      if (!db.atividades) db.atividades = {};
-      if (!db.mapas)      db.mapas = {};
-      if (!db.anotacoes)  db.anotacoes = {};
+      if (!db.atividades)    db.atividades = {};
+      if (!db.mapas)         db.mapas = {};
+      if (!db.anotacoes)     db.anotacoes = {};
+      if (!db.autoavaliacao) db.autoavaliacao = {};
       localStorage.setItem(STORAGE, JSON.stringify(db));
       document.getElementById('sync-status').textContent = '☁️ Sincronizado';
       setSave('ok');
@@ -1211,14 +1246,41 @@ function renderizarAnotacoes() {
     return;
   }
   if (!db.anotacoes) db.anotacoes = {};
+  // Atualiza label do trimestre ativo
+  const triLabelsShort = {1:'1º Tri', 2:'2º Tri', 3:'3º Tri'};
+  const lbl = document.getElementById('anot-tri-label');
+  if (lbl) lbl.textContent = triLabelsShort[anotTriAtivo];
+
+  if (!db.autoavaliacao) db.autoavaliacao = {};
+
   lista.innerHTML = alunos.map((a, i) => {
     const temNota = db.anotacoes[a] && TRIMESTRES.some(tr => {
       const d = db.anotacoes[a]['t'+tr];
       return d && Object.values(d).some(v => v && v.trim());
     });
-    return '<div class="anot-aluno-item' + (a === anotAlunoAtivo ? ' ativo' : '') + '" onclick="abrirAnotacaoAluno(\'' + esc(a) + '\')">' +
-      '<div><span class="anot-aluno-idx">' + String(i+1).padStart(2,'0') + '</span> <span class="anot-aluno-nome">' + a + '</span></div>' +
-      (temNota ? '<span class="anot-badge">✓</span>' : '') +
+    const autoVal = (db.autoavaliacao[a] && db.autoavaliacao[a]['t'+anotTriAtivo]) || '';
+    const notaNum = parseFloat(autoVal);
+    let notaClass = '';
+    if (autoVal !== '') {
+      if (notaNum >= 7) notaClass = 'nota-alta';
+      else if (notaNum >= 5) notaClass = 'nota-media';
+      else notaClass = 'nota-baixa';
+    }
+    return '<div class="anot-aluno-item' + (a === anotAlunoAtivo ? ' ativo' : '') + '">' +
+      '<div style="flex:1;min-width:0;cursor:pointer" onclick="abrirAnotacaoAluno(\'' + esc(a) + '\')">' +
+        '<span class="anot-aluno-idx">' + String(i+1).padStart(2,'0') + '</span> ' +
+        '<span class="anot-aluno-nome">' + a + '</span>' +
+        (temNota ? ' <span class="anot-badge">✓</span>' : '') +
+      '</div>' +
+      '<div class="anot-auto-col" onclick="event.stopPropagation()">' +
+        '<input type="number" min="0" max="10" step="0.1" ' +
+          'class="anot-auto-nota ' + notaClass + '" ' +
+          'value="' + esc(autoVal) + '" ' +
+          'placeholder="—" ' +
+          'title="Autoavaliação ' + (anotTriAtivo) + 'º Trimestre" ' +
+          'onchange="salvarAutoavaliacao(\'' + esc(a) + '\',' + anotTriAtivo + ',this.value)" ' +
+          'oninput="atualizarCorNota(this)">' +
+      '</div>' +
       '</div>';
   }).join('');
   if (anotAlunoAtivo && alunos.includes(anotAlunoAtivo)) {
@@ -1325,7 +1387,26 @@ function puxarTrimestireAnterior(a, trAtual) {
 
 function mudarTriAnotacao(tr) {
   anotTriAtivo = tr;
-  if (anotAlunoAtivo) renderizarEditorAnotacao(anotAlunoAtivo);
+  renderizarAnotacoes();
+}
+
+function salvarAutoavaliacao(a, tr, val) {
+  if (!db.autoavaliacao) db.autoavaliacao = {};
+  if (!db.autoavaliacao[a]) db.autoavaliacao[a] = {};
+  db.autoavaliacao[a]['t'+tr] = val;
+  salvar();
+  // Atualiza só o input sem re-renderizar tudo
+  renderizarListaAnotacoes();
+}
+
+function atualizarCorNota(input) {
+  const v = parseFloat(input.value);
+  input.classList.remove('nota-alta','nota-media','nota-baixa');
+  if (input.value !== '') {
+    if (v >= 7) input.classList.add('nota-alta');
+    else if (v >= 5) input.classList.add('nota-media');
+    else input.classList.add('nota-baixa');
+  }
 }
 
 function salvarAnotacao(a, campo, val) {
@@ -1338,7 +1419,7 @@ function salvarAnotacao(a, campo, val) {
 }
 
 function renderizarListaAnotacoes() {
-  // Atualiza apenas os badges da lista sem re-renderizar o editor
+  // Atualiza os badges e a nota de autoavaliação sem re-renderizar o editor
   const alunos = db.turmas['9ºA'] || [];
   const lista = document.getElementById('anotListaAlunos');
   if (!lista) return;
@@ -1346,6 +1427,18 @@ function renderizarListaAnotacoes() {
     const item = lista.children[i];
     if (!item) return;
     item.className = 'anot-aluno-item' + (a === anotAlunoAtivo ? ' ativo' : '');
+    const input = item.querySelector('.anot-auto-nota');
+    if (input) {
+      const autoVal = (db.autoavaliacao && db.autoavaliacao[a] && db.autoavaliacao[a]['t'+anotTriAtivo]) || '';
+      input.value = autoVal;
+      const v = parseFloat(autoVal);
+      input.classList.remove('nota-alta','nota-media','nota-baixa');
+      if (autoVal !== '') {
+        if (v >= 7) input.classList.add('nota-alta');
+        else if (v >= 5) input.classList.add('nota-media');
+        else input.classList.add('nota-baixa');
+      }
+    }
   });
 }
 
