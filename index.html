@@ -965,6 +965,8 @@ function goTab(tab) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   document.getElementById('page-' + tab).classList.add('active');
+  // Limpa nome da turma no cabeçalho de impressão ao sair da aba notas
+  if (tab !== 'notas') document.getElementById('print-turma-txt').textContent = '';
   if (tab === 'turmas') renderizarTurmas();
   if (tab === 'notas') { atualizarSelects(); sincronizarNotas(); renderizarNotas(); }
   if (tab === 'mapeamento') { atualizarSelects(); renderizarMapeamento(); }
@@ -1791,53 +1793,50 @@ function renderizarNotas() {
   btnTrava.style.display = '';
   btnTrava.textContent = isFechado ? '🔓 Destravar' : '🔒 Travar';
 
-  document.getElementById('print-turma-txt').textContent = 'Turma: ' + t;
+  // Atualiza nome da turma no cabeçalho de impressão SOMENTE na aba notas
+  if (document.getElementById('page-notas').classList.contains('active')) {
+    document.getElementById('print-turma-txt').textContent = 'Turma: ' + t;
+  }
 
   const ativ = db.atividades[t];
   const tr = trimestreFiltro; // só o trimestre selecionado
   const c = T_COLOR[tr];
 
   // ─── CABEÇALHO ───────────────────────────────────────────────────────────────
-  let row1 = '<tr><th rowspan="3" style="min-width:28px">#</th><th rowspan="3" style="min-width:140px;text-align:left">Estudante</th>';
-  row1 += `<th colspan="${N_ATIV * 2}" style="background:${c.header};color:white;border-left:2px solid ${c.border};border-right:2px solid ${c.border};text-align:center;font-size:11px;padding:6px 8px">📅 ${c.label}</th>`;
-  row1 += '<th rowspan="3" style="background:#1e3a1e;color:white;min-width:80px;text-align:center">Total<br>Geral</th>';
-  row1 += '<th rowspan="3" style="min-width:110px;text-align:left">Observações</th></tr>';
+  // row1: título do trimestre (colspan = N_ATIV, uma coluna por atividade)
+  let row1 = '<tr><th rowspan="2" style="min-width:28px">#</th><th rowspan="2" style="min-width:140px;text-align:left">Estudante</th>';
+  row1 += `<th colspan="${N_ATIV}" style="background:${c.header};color:white;border-left:2px solid ${c.border};border-right:2px solid ${c.border};text-align:center;font-size:11px;padding:6px 8px">📅 ${c.label}</th>`;
+  row1 += '<th rowspan="2" style="background:#1e3a1e;color:white;min-width:80px;text-align:center">Total<br>Geral</th>';
+  row1 += '<th rowspan="2" style="min-width:110px;text-align:left">Observações</th></tr>';
 
+  // row2: nome + valor máximo de cada atividade (uma th por atividade)
   let row2 = '<tr>';
   for (let i = 1; i <= N_ATIV; i++) {
     const aNome = ativ['t'+tr][i-1].nome || '';
-    const borderStyle = i === 1 ? `border-left:2px solid ${c.border}` : '';
+    const aValor = ativ['t'+tr][i-1].valor || '';
+    const hasName = aNome.trim() !== '';
+    const borderLeft  = i === 1 ? `border-left:2px solid ${c.border}` : '';
     const borderRight = i === N_ATIV ? `border-right:2px solid ${c.border}` : '';
-    row2 += `<th colspan="2" style="background:${c.light};${borderStyle};${borderRight};padding:4px">
+    row2 += `<th style="background:${c.light};${borderLeft};${borderRight};padding:4px;min-width:90px">
       <input type="text" class="ativ-nome-input" placeholder="Atividade ${i}"
         value="${esc(aNome)}"
         ${isFechado ? 'disabled' : ''}
         onchange="salvarNomeAtiv('${esc(t)}',${tr},${i-1},this.value)"
-        style="width:100%;font-size:10px;padding:3px 5px;text-align:center">
+        style="width:100%;font-size:10px;padding:3px 5px;text-align:center;margin-bottom:2px">
+      <div style="display:flex;align-items:center;justify-content:center;gap:3px;margin-top:2px">
+        <span style="font-size:9px;color:var(--ink-3)">Valor:</span>
+        <input type="number" class="nota-input" min="0" max="100" step="0.1"
+          value="${esc(aValor)}"
+          placeholder="—"
+          ${(!hasName || isFechado) ? 'disabled' : ''}
+          id="hdr-val-t${tr}-a${i}-${esc(t)}"
+          onchange="salvarValorAtiv('${esc(t)}',${tr},${i-1},this.value)"
+          style="width:44px;font-size:10px;padding:2px 4px">
+      </div>
     </th>`;
   }
   row2 += '</tr>';
-
-  let row3 = '<tr>';
-  for (let i = 1; i <= N_ATIV; i++) {
-    const aNome = ativ['t'+tr][i-1].nome || '';
-    const aValor = ativ['t'+tr][i-1].valor || '';
-    const borderStyle = i === 1 ? `border-left:2px solid ${c.border}` : '';
-    const borderRight = i === N_ATIV ? `border-right:2px solid ${c.border}` : '';
-    const hasName = aNome.trim() !== '';
-    row3 += `<th style="background:${c.light};${borderStyle};font-size:10px;color:#555;padding:3px 4px;width:52px">
-      <input type="number" class="nota-input" min="0" max="100" step="0.1"
-        value="${esc(aValor)}"
-        placeholder="Valor"
-        ${(!hasName || isFechado) ? 'disabled' : ''}
-        id="hdr-val-t${tr}-a${i}-${esc(t)}"
-        onchange="salvarValorAtiv('${esc(t)}',${tr},${i-1},this.value)"
-        style="width:52px;font-size:10px">
-    </th>
-    <th style="background:${c.light};${borderRight};font-size:9px;color:var(--ink-3);padding:3px;width:52px">Nota</th>`;
-  }
-  row3 += '</tr>';
-  thead.innerHTML = row1 + row2 + row3;
+  thead.innerHTML = row1 + row2;
 
   // ─── CORPO ────────────────────────────────────────────────────────────────────
   const alunos = db.turmas[t].filter(a => a.toLowerCase().includes(filtro));
@@ -1845,6 +1844,16 @@ function renderizarNotas() {
     corpo.innerHTML = '<tr><td colspan="20"><div class="empty">Nenhum aluno encontrado.</div></td></tr>';
     return;
   }
+
+  // Calcula valor máximo total (soma de todos os trimestres) para calcular % aproveitamento
+  let valorMaxTotal = 0;
+  TRIMESTRES.forEach(tAll => {
+    for (let i = 1; i <= N_ATIV; i++) {
+      const nm = ativ['t'+tAll][i-1].nome || '';
+      const vl = parseFloat(ativ['t'+tAll][i-1].valor) || 0;
+      if (nm.trim() !== '' && vl > 0) valorMaxTotal += vl;
+    }
+  });
 
   corpo.innerHTML = alunos.map((a, idx) => {
     const nota = db.notas[t][a] || {};
@@ -1857,24 +1866,30 @@ function renderizarNotas() {
       }
     });
 
+    // Cor do total: azul ≥ 60%, vermelho < 60%
+    let totalStyle = 'color:var(--ocean-mid)';
+    if (totalGeral > 0 && valorMaxTotal > 0) {
+      const pct = totalGeral / valorMaxTotal;
+      totalStyle = pct >= 0.6
+        ? 'color:#1d4ed8;font-weight:700'
+        : 'color:#dc2626;font-weight:700';
+    }
+
     let cells = '';
     for (let i = 1; i <= N_ATIV; i++) {
       const key = 't'+tr+'_a'+i;
       const aNome = ativ['t'+tr][i-1].nome || '';
       const hasName = aNome.trim() !== '';
-      const borderStyle = i === 1 ? `border-left:2px solid ${c.border}` : '';
+      const borderLeft  = i === 1 ? `border-left:2px solid ${c.border}` : '';
       const borderRight = i === N_ATIV ? `border-right:2px solid ${c.border}` : '';
-      const aValor = ativ['t'+tr][i-1].valor;
-      cells += `<td style="background:${c.light};${borderStyle};text-align:center;padding:4px">
-        <span style="font-size:10px;color:var(--ink-3);font-family:'DM Mono',monospace">${aValor !== '' ? aValor : '—'}</span>
-      </td>
-      <td style="${borderRight};text-align:center;padding:4px">
+      // Célula única por atividade (sem coluna de valor)
+      cells += `<td style="background:${c.light};${borderLeft};${borderRight};text-align:center;padding:4px">
         <input type="number" class="nota-input" min="0" step="0.1"
           value="${nota[key] !== '' ? nota[key] : ''}"
           placeholder="—"
           ${(!hasName || isFechado) ? 'disabled' : ''}
           onchange="salvarNota('${esc(t)}','${esc(a)}','${key}',this.value)"
-          style="width:52px;font-size:11px;${!hasName ? 'background:#f1f5f9;' : ''}">
+          style="width:60px;font-size:11px;${!hasName ? 'background:#f1f5f9;' : ''}">
       </td>`;
     }
 
@@ -1883,7 +1898,7 @@ function renderizarNotas() {
       <td style="text-align:center;font-size:11px;color:var(--ink-3);font-family:'DM Mono',monospace">${String(idx+1).padStart(2,'0')}</td>
       <td style="font-weight:500;white-space:nowrap;min-width:140px">${a}</td>
       ${cells}
-      <td class="total-cell" style="border-left:2px solid var(--ocean-light)">${totalGeral > 0 ? totalGeral.toFixed(1) : '—'}</td>
+      <td class="total-cell" style="border-left:2px solid var(--ocean-light);${totalStyle}">${totalGeral > 0 ? totalGeral.toFixed(1) : '—'}</td>
       <td style="min-width:110px">
         <input type="text" value="${obsVal}" placeholder="Obs..."
           ${isFechado ? 'disabled' : ''}
